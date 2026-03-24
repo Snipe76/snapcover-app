@@ -62,6 +62,7 @@ export default function LandingPage() {
                     { name: 'MacBook Pro 16"', store: 'Apple Store', days: 312, color: 'var(--accent-secondary)' },
                     { name: 'Sony WH-1000XM5', store: 'Amazon', days: 14, color: 'var(--warning)' },
                     { name: 'Dyson V15', store: 'Best Buy', days: 2, color: 'var(--danger)' },
+                    { name: 'PS5 Disc Edition', store: 'Target', days: -12, color: '#8e8e93' },
                   ].map((w) => (
                     <div className="mock-card" key={w.name}>
                       <div className="mock-card-left">
