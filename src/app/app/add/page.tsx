@@ -31,6 +31,10 @@ function AddPageInner() {
     purchase_date:   '',
     warranty_months: 12,
     notes:           '',
+    notify_30_days:   true,
+    notify_7_days:    true,
+    notify_1_day:     true,
+    notify_expired:   true,
   });
   const supabase = createClient();
 
@@ -65,6 +69,10 @@ function AddPageInner() {
         purchase_date:   result.purchase_date,
         warranty_months: 12,
         notes:           '',
+        notify_30_days:  true,
+        notify_7_days:  true,
+        notify_1_day:   true,
+        notify_expired:  true,
       });
       setStep('confirm');
     } catch {
@@ -122,15 +130,19 @@ function AddPageInner() {
       }
 
       const { error: insertError } = await supabase.from('warranties').insert({
-        user_id:        user.id,
-        item_name:      form.item_name,
-        store_name:     form.store_name,
-        purchase_date:  form.purchase_date,
-        warranty_months: form.warranty_months,
-        expiry_date:    expiryDateStr,
-        notes:          form.notes || null,
-        receipt_url:    receiptUrl,
+        user_id:         user.id,
+        item_name:       form.item_name,
+        store_name:      form.store_name,
+        purchase_date:   form.purchase_date,
+        warranty_months:  form.warranty_months,
+        expiry_date:     expiryDateStr,
+        notes:           form.notes || null,
+        receipt_url:     receiptUrl,
         status,
+        notify_30_days:  form.notify_30_days,
+        notify_7_days:   form.notify_7_days,
+        notify_1_day:    form.notify_1_day,
+        notify_expired:  form.notify_expired,
       });
 
       if (insertError) {
@@ -251,6 +263,33 @@ function AddPageInner() {
               Expires: <strong>{expiryDate}</strong>
             </p>
           )}
+
+          {/* Notification preferences */}
+          <div className={styles.field}>
+            <p className={styles.label}>When to remind me</p>
+            <div className={styles.notifyCard}>
+              {[
+                { key: 'notify_30_days',  label: '30 days before expiry' },
+                { key: 'notify_7_days',  label: '7 days before expiry'  },
+                { key: 'notify_1_day',    label: '1 day before expiry'    },
+                { key: 'notify_expired',  label: 'On expiry day'          },
+              ].map(({ key, label }) => (
+                <div key={key} className={styles.notifyRow}>
+                  <span className={styles.notifyLabel}>{label}</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form[key as keyof typeof form] as boolean}
+                    className={`${styles.toggle} ${form[key as keyof typeof form] ? styles.toggleOn : ''}`}
+                    onClick={() => setForm((f) => ({ ...f, [key]: !f[key as keyof typeof f] }))}
+                    disabled={isSaving}
+                  >
+                    <span className={styles.toggleThumb} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className={styles.field}>
             <label htmlFor="notes" className={styles.label}>

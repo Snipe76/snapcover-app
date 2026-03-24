@@ -238,3 +238,65 @@
 .btnSecondary:hover:not(:disabled) { background: var(--surface-elevated); }
 .btnSecondary:active:not(:disabled) { transform: scale(0.97); }
 .btnSecondary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ─── Notification preferences ──────────────────────────────────────────────── */
+.notifyCard {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.notifyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px var(--space-4);
+}
+
+.notifyRow:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
+.notifyLabel {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+/* ─── Toggle ────────────────────────────────────────────────────────────────── */
+.toggle {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  background: var(--border);
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  transition: background var(--duration-micro) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.toggleOn {
+  background: var(--accent);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  transition: transform var(--duration-micro) var(--ease-out);
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(20px);
+}
+
+.toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
