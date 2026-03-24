@@ -1,130 +1,58 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { extractReceiptData } from '@/lib/ocr';
 import { z } from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './add.module.css';
 
-type Step = 'capture' | 'processing' | 'confirm' | 'saving';
-
 const WarrantySchema = z.object({
   item_name:       z.string().min(1, 'Item name is required'),
   store_name:      z.string().min(1, 'Store name is required'),
-  purchase_date:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
+  purchase_date:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
   warranty_months: z.number().min(1).max(120),
   notes:           z.string().optional(),
 });
 
-export default function AddPage() {
-  return (
-    <Suspense fallback={null}>
-      <AddPageInner />
-    </Suspense>
-  );
-}
+type Step = 'idle' | 'processing' | 'confirm' | 'saving';
 
 function AddPageInner() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('capture');
-  const [ocrResult, setOcrResult] = useState<{
-    item_name: string;
-    store_name: string;
-    purchase_date: string;
-    total: string;
-  } | null>(null);
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
-  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    item_name: '',
-    store_name: '',
-    purchase_date: '',
-    warranty_months: 12,
-    notes: '',
-  });
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const supabase = createClient();
   const searchParams = useSearchParams();
   const source = searchParams.get('source');
 
-  // ─── Camera auto-start ─────────────────────────────────────────────────
-  // Uses step as trigger (avoids stale ref on first render)
-  useEffect(() => {
-    if (step === 'capture' && source === 'camera' && !streamRef.current) {
-      startCamera();
-    }
-  }, [step, source]);
+  const [step, setStep] = useState<Step>('idle');
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    item_name:       '',
+    store_name:      '',
+    purchase_date:   '',
+    warranty_months: 12,
+    notes:           '',
+  });
+  const supabase = createClient();
 
+  // Handle incoming image from sessionStorage (camera or library)
   useEffect(() => {
-    // Play video once stream is attached
-    if (streamRef.current && videoRef.current && videoRef.current.srcObject !== streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.play().catch(() => {});
-    }
-  }, [streamRef.current]);
-
-  // ─── Handle source param on mount ──────────────────────────────────────
-  useEffect(() => {
-    if (source === 'library') {
-      fileInputRef.current?.click();
-    } else if (source === 'manual') {
-      setOcrResult({ item_name: '', store_name: '', purchase_date: '', total: '' });
+    if (source === 'manual') {
       setStep('confirm');
+      return;
     }
-  }, [source]);
 
-  // ─── Camera ─────────────────────────────────────────────────────────────
-  const startCamera = useCallback(async () => {
-    setStep('capture');
-    setError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+    if (source === 'camera' || source === 'library') {
+      const stored = sessionStorage.getItem('pending_warranty_image');
+      if (stored) {
+        sessionStorage.removeItem('pending_warranty_image');
+        processImage(stored);
+      } else {
+        // No image found — go to manual entry
+        setStep('confirm');
       }
-    } catch {
-      setStep('capture');
-      setError('Camera access denied. Please allow camera access or select a photo from your library.');
     }
-  }, []);
-
-  const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-  }, []);
-
-  const capturePhoto = useCallback(() => {
-    if (!videoRef.current) return;
-    const canvas = document.createElement('canvas');
-    canvas.width  = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(videoRef.current, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    stopCamera();
-    processImage(dataUrl);
-  }, [stopCamera]);
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result as string;
-      stopCamera();
-      processImage(result);
-    };
-    reader.readAsDataURL(file);
-  }, [stopCamera]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source]);
 
   const processImage = async (dataUrl: string) => {
     setImageDataUrl(dataUrl);
@@ -133,18 +61,16 @@ function AddPageInner() {
 
     try {
       const result = await extractReceiptData(dataUrl);
-      setOcrResult(result);
       setForm({
         item_name:       result.item_name,
         store_name:      result.store_name,
         purchase_date:   result.purchase_date,
         warranty_months: 12,
-        notes: '',
+        notes:           '',
       });
       setStep('confirm');
     } catch {
-      // OCR failed — go to form anyway with empty fields
-      setOcrResult({ item_name: '', store_name: '', purchase_date: '', total: '' });
+      setForm((f) => ({ ...f, item_name: '', store_name: '', purchase_date: '' }));
       setStep('confirm');
     }
   };
@@ -154,7 +80,6 @@ function AddPageInner() {
     setStep('saving');
     setError(null);
 
-    // Validate
     const parsed = WarrantySchema.safeParse(form);
     if (!parsed.success) {
       setError(parsed.error.issues[0].message);
@@ -195,7 +120,6 @@ function AddPageInner() {
       const daysUntil = Math.round((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       const status: 'active' | 'expiring' = daysUntil <= 30 ? 'expiring' : 'active';
 
-      // Insert
       const { error: insertError } = await supabase.from('warranties').insert({
         item_name:       form.item_name,
         store_name:      form.store_name,
@@ -217,59 +141,11 @@ function AddPageInner() {
     }
   };
 
-  // ─── Step: Capture ─────────────────────────────────────────────────────
-  if (step === 'capture') {
-    const hasStream = !!streamRef.current;
-
+  // ─── Idle (waiting for image) ─────────────────────────────────────────────
+  if (step === 'idle') {
     return (
-      <div className={styles.capture}>
-        <div className={styles.camera}>
-          <video
-            ref={videoRef}
-            className={styles.video}
-            playsInline
-            muted
-            autoPlay
-            aria-label="Camera preview"
-          />
-        </div>
-
-        <div className={styles.captureControls}>
-          {hasStream ? (
-            <button className={styles.captureBtn} onClick={capturePhoto} aria-label="Take photo">
-              <div className={styles.captureBtnInner} />
-            </button>
-          ) : (
-            <button
-              className={styles.startCameraBtn}
-              onClick={startCamera}
-              aria-label="Start camera"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.75" />
-              </svg>
-              Start camera
-            </button>
-          )}
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileSelect}
-          className={styles.fileInput}
-          aria-hidden="true"
-          tabIndex={-1}
-        />
-
-        {error && (
-          <div className={styles.errorBanner} role="alert">
-            {error}
-          </div>
-        )}
+      <div className={styles.idle}>
+        <p>Opening camera…</p>
       </div>
     );
   }
@@ -403,15 +279,10 @@ function AddPageInner() {
         <div className={styles.formActions}>
           <button
             className={styles.btnSecondary}
-            onClick={() => {
-              stopCamera();
-              setStep('capture');
-              setImageDataUrl(null);
-              setOcrResult(null);
-            }}
+            onClick={() => router.push('/')}
             disabled={isSaving}
           >
-            Retake photo
+            Cancel
           </button>
           <button
             className={styles.btnPrimary}
@@ -426,4 +297,12 @@ function AddPageInner() {
   }
 
   return null;
+}
+
+export default function AddPage() {
+  return (
+    <Suspense fallback={null}>
+      <AddPageInner />
+    </Suspense>
+  );
 }

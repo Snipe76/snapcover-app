@@ -1,131 +1,16 @@
-/* ─── Capture Step ─────────────────────────────────────────────────────────── */
-.capture {
+/* ─── Idle (waiting for image) ─────────────────────────────────────────────── */
+.idle {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-height: calc(100dvh - var(--header-height) - var(--nav-height));
-  background: #000;
+  padding: var(--space-8);
 }
 
-.camera {
-  position: relative;
-  flex: 1;
-  overflow: hidden;
-}
-
-.video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cameraOverlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.captureControls {
-  position: absolute;
-  bottom: var(--space-8);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.captureBtn {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  transition: transform var(--duration-micro) var(--ease-out);
-}
-
-.captureBtn:active { transform: scale(0.95); }
-
-.captureBtnInner {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: white;
-  border: 3px solid #ddd;
-}
-
-.capturePlaceholder {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.2);
-}
-
-.startCameraBtn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 50px;
-  padding: 0 var(--space-5);
-  background: var(--accent);
-  border-radius: var(--radius-full);
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
-  transition:
-    transform var(--duration-micro) var(--ease-out),
-    box-shadow var(--duration-micro) var(--ease-out);
-}
-
-.startCameraBtn:active {
-  transform: scale(0.97);
-}
-
-.cameraStartPrompt {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #000;
-}
-
-.cameraStartPrompt p {
+.idle p {
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.5);
-  text-align: center;
-  padding: 0 var(--space-8);
+  color: var(--text-tertiary);
 }
-
-.captureActions {
-  position: absolute;
-  bottom: var(--space-6);
-  left: 0;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.actionSecondary {
-  height: 40px;
-  padding: 0 var(--space-5);
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
-  border-radius: var(--radius-full);
-  color: white;
-  font-size: 15px;
-  font-weight: 500;
-  transition: background var(--duration-micro) var(--ease-out);
-}
-
-.actionSecondary:hover { background: rgba(255, 255, 255, 0.25); }
-
-.fileInput { display: none; }
 
 /* ─── Processing Step ──────────────────────────────────────────────────────── */
 .processing {

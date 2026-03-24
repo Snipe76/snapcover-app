@@ -10,6 +10,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
 
   // Close menu on outside tap
   useEffect(() => {
@@ -35,7 +37,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const handleAction = (source: string) => {
     setMenuOpen(false);
-    router.push(`/add?source=${source}`);
+    if (source === 'camera') {
+      cameraInputRef.current?.click();
+    } else if (source === 'library') {
+      libraryInputRef.current?.click();
+    } else {
+      router.push('/add?source=manual');
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, source: 'camera' | 'library') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      sessionStorage.setItem('pending_warranty_image', dataUrl);
+      router.push(`/add?source=${source}`);
+    };
+    reader.readAsDataURL(file);
+    // Reset so same file can be re-selected
+    e.target.value = '';
   };
 
   return (
@@ -61,33 +83,74 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
+      {/* Hidden file inputs for camera + library */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => handleFileChange(e, 'camera')}
+        className={styles.hiddenInput}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+      <input
+        ref={libraryInputRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => handleFileChange(e, 'library')}
+        className={styles.hiddenInput}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+
       <nav className={styles.nav} aria-label="Main navigation">
-        <Link
-          href="/"
-          className={`${styles.navItem} ${pathname === '/' ? styles.navItemActive : ''}`}
-          aria-current={pathname === '/' ? 'page' : undefined}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-            <polyline points="9 22 9 12 15 12 15 22" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>Home</span>
-        </Link>
+        {/* Left: Home + Alerts stacked */}
+        <div className={styles.navRow}>
+          <div className={styles.navLeft}>
+            <Link
+              href="/"
+              className={`${styles.navItem} ${pathname === '/' ? styles.navItemActive : ''}`}
+              aria-current={pathname === '/' ? 'page' : undefined}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points="9 22 9 12 15 12 15 22" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span>Home</span>
+            </Link>
 
-        <Link
-          href="/notifications"
-          className={`${styles.navItem} ${pathname === '/notifications' ? styles.navItemActive : ''}`}
-          aria-current={pathname === '/notifications' ? 'page' : undefined}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>Alerts</span>
-        </Link>
+            <Link
+              href="/notifications"
+              className={`${styles.navItem} ${pathname === '/notifications' ? styles.navItemActive : ''}`}
+              aria-current={pathname === '/notifications' ? 'page' : undefined}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span>Alerts</span>
+            </Link>
+          </div>
 
-        {/* FAB — toggles add menu */}
-        <div className={styles.navItem} ref={menuRef}>
+          {/* Right: Settings */}
+          <div className={styles.navRight}>
+            <Link
+              href="/settings"
+              className={`${styles.navItem} ${pathname === '/settings' ? styles.navItemActive : ''}`}
+              aria-current={pathname === '/settings' ? 'page' : undefined}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.75" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span>Settings</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* FAB — always centered, with its popover above */}
+        <div className={styles.navCenter} ref={menuRef}>
           <button
             className={styles.navFab}
             onClick={() => setMenuOpen((v) => !v)}
@@ -101,7 +164,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </svg>
           </button>
 
-          {/* Popover menu */}
           {menuOpen && (
             <div className={styles.addMenu} role="menu" aria-label="Add warranty options">
               <button
@@ -149,18 +211,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
         </div>
-
-        <Link
-          href="/settings"
-          className={`${styles.navItem} ${pathname === '/settings' ? styles.navItemActive : ''}`}
-          aria-current={pathname === '/settings' ? 'page' : undefined}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.75" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>Settings</span>
-        </Link>
       </nav>
     </>
   );

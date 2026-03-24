@@ -25,15 +25,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
-  touch-action: pan-y;
-}
-
-/* Notifications page can scroll */
-body.scroll {
-  overflow: auto !important;
-  touch-action: auto;
+  overflow: auto;
+  overscroll-behavior: auto;
+  touch-action: manipulation;
 }
 
 /* ─── Scrollbar ─────────────────────────────────────────────────────────── */
