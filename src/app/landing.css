@@ -443,6 +443,18 @@
   .feature-grid { grid-template-columns: 1fr; }
 }
 
+/* Center the eyebrow + heading on mobile to match the How section */
+@media (max-width: 768px) {
+  .features .section-eyebrow,
+  .features .section-heading {
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .feature-grid { grid-template-columns: 1fr; }
+}
+
 .feature-item {
   display: flex;
   flex-direction: column;
