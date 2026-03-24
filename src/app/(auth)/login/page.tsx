@@ -80,12 +80,6 @@ export default function LoginPage() {
 
   return (
     <main className={styles.container}>
-      {/* DEBUG: show env status */}
-      <div style={{ padding: '8px 16px', fontSize: 11, color: '#6e6e73', fontFamily: 'monospace', textAlign: 'center' }}>
-        URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ? '✅' : '❌'} &nbsp;
-        KEY: {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✅' : '❌'}
-      </div>
-
       <div className={styles.hero}>
         <div className={styles.logo} aria-hidden="true">
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
