@@ -19,7 +19,7 @@ export default function CallbackPage() {
       }
 
       if (session) {
-        router.push('/');
+        router.push('/app');
       } else {
         router.push('/login?error=auth_failed');
       }

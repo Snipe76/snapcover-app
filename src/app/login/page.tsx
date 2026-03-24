@@ -23,25 +23,19 @@ export default function LoginPage() {
     setError(null);
     setSuccess(null);
 
-    console.log('[login] Attempting', mode, 'for', email);
-
     try {
       if (mode === 'signup') {
-        const { data, error: signUpError } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
         });
 
         setLoading(false);
-        console.log('[login] signUp result:', { hasData: !!data, hasError: !!signUpError, error: signUpError?.message, hasSession: !!data?.session });
 
         if (signUpError) {
           setError(signUpError.message);
-        } else if (!data.session) {
-          // Email confirmation required
-          setSuccess('Check your email for a confirmation link. Click it, then come back and sign in with your password.');
         } else {
-          router.push('/');
+          setSuccess('Check your email for a confirmation link. Click it, then come back and sign in with your password.');
         }
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -50,13 +44,11 @@ export default function LoginPage() {
         });
 
         setLoading(false);
-        console.log('[login] signIn result:', { error: signInError?.message, code: signInError?.code });
 
         if (signInError) {
           setError(signInError.message);
         } else {
-          console.log('[login] Sign in successful, redirecting to /');
-          router.push('/');
+          router.push('/app');
         }
       }
     } catch (err) {

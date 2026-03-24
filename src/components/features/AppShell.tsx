@@ -45,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     } else if (source === 'library') {
       libraryInputRef.current?.click();
     } else {
-      router.push('/add?source=manual');
+      router.push('/app/add?source=manual');
     }
   };
 
@@ -56,7 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
       sessionStorage.setItem('pending_warranty_image', dataUrl);
-      router.push(`/add?source=${source}`);
+      router.push(`/app/add?source=${source}`);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -71,7 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </span>
 
           <Link
-            href="/notifications"
+            href="/app/notifications"
             className={styles.headerAction}
             aria-label="Notifications"
           >
@@ -120,9 +120,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <nav className={styles.nav} aria-label="Main navigation">
         {/* Home */}
         <Link
-          href="/"
-          className={`${styles.navItem} ${pathname === '/' ? styles.navItemActive : ''}`}
-          aria-current={pathname === '/' ? 'page' : undefined}
+          href="/app"
+          className={`${styles.navItem} ${pathname === '/app' ? styles.navItemActive : ''}`}
+          aria-current={pathname === '/app' ? 'page' : undefined}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
@@ -196,9 +196,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Settings */}
         <Link
-          href="/settings"
-          className={`${styles.navItem} ${pathname === '/settings' ? styles.navItemActive : ''}`}
-          aria-current={pathname === '/settings' ? 'page' : undefined}
+          href="/app/settings"
+          className={`${styles.navItem} ${pathname === '/app/settings' ? styles.navItemActive : ''}`}
+          aria-current={pathname === '/app/settings' ? 'page' : undefined}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.75" />
@@ -212,9 +212,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function getTitle(pathname: string): string {
-  if (pathname.startsWith('/warranty/')) return 'Warranty';
-  if (pathname === '/add') return 'Add Warranty';
-  if (pathname === '/notifications') return 'Notifications';
-  if (pathname === '/settings') return 'Settings';
+  if (pathname.startsWith('/app/warranty/')) return 'Warranty';
+  if (pathname === '/app/add') return 'Add Warranty';
+  if (pathname === '/app/notifications') return 'Notifications';
+  if (pathname === '/app/settings') return 'Settings';
+  if (pathname === '/app') return 'SnapCover';
   return 'SnapCover';
 }

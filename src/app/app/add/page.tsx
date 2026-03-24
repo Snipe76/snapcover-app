@@ -34,7 +34,6 @@ function AddPageInner() {
   });
   const supabase = createClient();
 
-  // Handle incoming image from sessionStorage (camera or library)
   useEffect(() => {
     if (source === 'manual') {
       setStep('confirm');
@@ -47,7 +46,6 @@ function AddPageInner() {
         sessionStorage.removeItem('pending_warranty_image');
         processImage(stored);
       } else {
-        // No image found — go to manual entry
         setStep('confirm');
       }
     }
@@ -75,7 +73,6 @@ function AddPageInner() {
     }
   };
 
-  // ─── Save ────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setStep('saving');
     setError(null);
@@ -88,7 +85,6 @@ function AddPageInner() {
     }
 
     try {
-      // Upload image to Supabase Storage
       let receiptUrl: string | null = null;
       if (imageDataUrl) {
         const filename = `receipts/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
@@ -106,13 +102,11 @@ function AddPageInner() {
         }
       }
 
-      // Calculate expiry
       const purchaseDate = new Date(form.purchase_date);
       const expiryDate   = new Date(purchaseDate);
       expiryDate.setMonth(expiryDate.getMonth() + form.warranty_months);
       const expiryDateStr = expiryDate.toISOString().split('T')[0];
 
-      // Determine status
       const now = new Date();
       now.setHours(0, 0, 0, 0);
       const expiry = new Date(expiryDateStr);
@@ -133,7 +127,7 @@ function AddPageInner() {
 
       if (insertError) throw insertError;
 
-      router.push('/?saved=true');
+      router.push('/app?saved=true');
     } catch (err) {
       console.error('Save error:', err);
       setError('Failed to save warranty. Please try again.');
@@ -141,7 +135,6 @@ function AddPageInner() {
     }
   };
 
-  // ─── Idle (waiting for image) ─────────────────────────────────────────────
   if (step === 'idle') {
     return (
       <div className={styles.idle}>
@@ -150,7 +143,6 @@ function AddPageInner() {
     );
   }
 
-  // ─── Step: Processing ───────────────────────────────────────────────────
   if (step === 'processing') {
     return (
       <div className={styles.processing}>
@@ -161,7 +153,6 @@ function AddPageInner() {
     );
   }
 
-  // ─── Step: Confirm ──────────────────────────────────────────────────────
   if (step === 'confirm' || step === 'saving') {
     const isSaving = step === 'saving';
     const expiryDate = form.purchase_date
@@ -249,7 +240,9 @@ function AddPageInner() {
           )}
 
           <div className={styles.field}>
-            <label htmlFor="notes" className={styles.label}>Notes <span className={styles.optional}>(optional)</span></label>
+            <label htmlFor="notes" className={styles.label}>
+              Notes <span className={styles.optional}>(optional)</span>
+            </label>
             <textarea
               id="notes"
               value={form.notes}
@@ -279,7 +272,7 @@ function AddPageInner() {
         <div className={styles.formActions}>
           <button
             className={styles.btnSecondary}
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/app')}
             disabled={isSaving}
           >
             Cancel

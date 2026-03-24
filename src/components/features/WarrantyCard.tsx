@@ -29,7 +29,7 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
   return (
     <>
       <Link
-        href={`/warranty/${warranty.id}`}
+        href={`/app/warranty/${warranty.id}`}
         className={`${styles.card} ${styles[`status_${warranty.status}`]}`}
         aria-label={`${warranty.item_name} from ${warranty.store_name}, ${getDaysText(warranty.expiry_date)}`}
       >
