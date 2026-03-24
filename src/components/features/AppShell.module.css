@@ -82,6 +82,8 @@
   background: none;
   border: none;
   cursor: pointer;
+  position: relative;
+  z-index: 200;
 }
 
 .navItem:hover { color: var(--text-secondary); }
@@ -132,7 +134,7 @@
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
-  z-index: 101;
+  z-index: 50;
   animation: fadeIn 150ms ease-out;
 }
 
