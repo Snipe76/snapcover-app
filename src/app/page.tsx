@@ -18,7 +18,7 @@ export default function LandingPage() {
           </span>
           <nav className="landing-nav" aria-label="Landing navigation">
             <Link href="/login" className="landing-nav-signin">Sign in</Link>
-            <Link href="/login" className="landing-nav-cta">Get started</Link>
+            <Link href="/login?mode=signup" className="landing-nav-cta">Get started</Link>
           </nav>
         </div>
       </header>
@@ -36,7 +36,7 @@ export default function LandingPage() {
               and reminds you before they expire — so you never miss a claim.
             </p>
             <div className="hero-actions">
-              <Link href="/login" className="btn-primary">
+              <Link href="/login?mode=signup" className="btn-primary">
                 Get started free
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -230,7 +230,7 @@ export default function LandingPage() {
           <div className="cta-inner">
             <h2 id="cta-heading" className="cta-heading">Ready to protect your purchases?</h2>
             <p className="cta-sub">No credit card required. Core features are free, forever.</p>
-            <Link href="/login" className="btn-primary btn-large">
+            <Link href="/login?mode=signup" className="btn-primary btn-large">
               Create your account
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
