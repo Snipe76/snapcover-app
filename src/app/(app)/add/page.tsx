@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect, Suspense } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { extractReceiptData } from '@/lib/ocr';
 import { z } from 'zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './add.module.css';
 
 type Step = 'capture' | 'processing' | 'confirm' | 'saving';
@@ -18,6 +18,14 @@ const WarrantySchema = z.object({
 });
 
 export default function AddPage() {
+  return (
+    <Suspense fallback={null}>
+      <AddPageInner />
+    </Suspense>
+  );
+}
+
+function AddPageInner() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('capture');
   const [ocrResult, setOcrResult] = useState<{
@@ -40,9 +48,26 @@ export default function AddPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const source = searchParams.get('source');
+
+  // Auto-launch based on source param
+  useEffect(() => {
+    if (source === 'camera') {
+      startCamera();
+    } else if (source === 'library') {
+      fileInputRef.current?.click();
+    } else if (source === 'manual') {
+      setOcrResult({ item_name: '', store_name: '', purchase_date: '', total: '' });
+      setStep('confirm');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source]);
 
   // ─── Camera ─────────────────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
+    setStep('capture');
+    setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -53,6 +78,7 @@ export default function AddPage() {
         await videoRef.current.play();
       }
     } catch {
+      setStep('capture');
       setError('Camera access denied. Please allow camera access or select a photo from your library.');
     }
   }, []);
@@ -180,6 +206,8 @@ export default function AddPage() {
 
   // ─── Step: Capture ─────────────────────────────────────────────────────
   if (step === 'capture') {
+    const hasStream = videoRef.current?.srcObject != null;
+
     return (
       <div className={styles.capture}>
         <div className={styles.camera}>
@@ -194,22 +222,35 @@ export default function AddPage() {
           <div className={styles.cameraOverlay} aria-hidden="true">
             <div className={styles.cameraFrame} />
           </div>
+
+          {!hasStream && (
+            <div className={styles.cameraStartPrompt}>
+              <p>Tap the button below to start your camera</p>
+            </div>
+          )}
         </div>
 
         <div className={styles.captureControls}>
-          {videoRef.current?.srcObject ? (
+          {hasStream ? (
             <button className={styles.captureBtn} onClick={capturePhoto} aria-label="Take photo">
               <div className={styles.captureBtnInner} />
             </button>
           ) : (
-            <div className={styles.capturePlaceholder} aria-hidden="true" />
+            <button
+              className={styles.startCameraBtn}
+              onClick={startCamera}
+              aria-label="Start camera"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.75" />
+              </svg>
+              Start camera
+            </button>
           )}
         </div>
 
         <div className={styles.captureActions}>
-          <button className={styles.actionSecondary} onClick={startCamera}>
-            Open camera
-          </button>
           <button
             className={styles.actionSecondary}
             onClick={() => fileInputRef.current?.click()}

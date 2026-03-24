@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <AppShell userId={user.id}>
+    <AppShell>
       {children}
     </AppShell>
   );

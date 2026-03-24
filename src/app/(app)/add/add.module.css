@@ -75,6 +75,43 @@
   background: rgba(255,255,255,0.2);
 }
 
+.startCameraBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 50px;
+  padding: 0 var(--space-5);
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+  transition:
+    transform var(--duration-micro) var(--ease-out),
+    box-shadow var(--duration-micro) var(--ease-out);
+}
+
+.startCameraBtn:active {
+  transform: scale(0.97);
+}
+
+.cameraStartPrompt {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.cameraStartPrompt p {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  padding: 0 var(--space-8);
+}
+
 .captureActions {
   position: absolute;
   bottom: var(--space-6);
