@@ -43,6 +43,40 @@
   box-shadow: var(--shadow-md);
 }
 
+/* ─── Tabs ─────────────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 0;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin-bottom: var(--space-6);
+}
+
+.tab {
+  flex: 1;
+  height: 36px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition:
+    background  var(--duration-micro) var(--ease-out),
+    color       var(--duration-micro) var(--ease-out);
+}
+
+.tab:hover:not(.tabActive) {
+  color: var(--text-primary);
+}
+
+.tabActive {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
 .cardTitle {
   font-size: 22px;
   font-weight: 600;

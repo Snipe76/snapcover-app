@@ -1,44 +1,57 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import styles from './login.module.css';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!email.trim() || !password.trim()) return;
 
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/callback`,
-      },
-    });
-
-    setLoading(false);
-
-    if (error) {
-      setError(error.message);
+    if (mode === 'signup') {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password.trim(),
+      });
+      setLoading(false);
+      if (error) {
+        setError(error.message);
+      } else {
+        setSuccess(true);
+      }
     } else {
-      setSent(true);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
+      setLoading(false);
+      if (error) {
+        setError(error.message);
+      } else {
+        // Redirect handled by the (app)/layout auth check
+        window.location.href = '/';
+      }
     }
   };
 
   return (
     <main className={styles.container}>
       <div className={styles.hero}>
-        <div className={styles.logo}>
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <div className={styles.logo} aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
             <rect width="48" height="48" rx="12" fill="var(--accent)" />
             <path d="M14 20h20M14 24h12M14 28h16" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
             <circle cx="36" cy="34" r="6" fill="var(--accent-secondary)" />
@@ -50,7 +63,7 @@ export default function LoginPage() {
       </div>
 
       <div className={styles.card}>
-        {sent ? (
+        {success ? (
           <div className={styles.success}>
             <div className={styles.successIcon} aria-hidden="true">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -60,23 +73,32 @@ export default function LoginPage() {
               </svg>
             </div>
             <h2>Check your email</h2>
-            <p>
-              We sent a magic link to <strong>{email}</strong>.<br />
-              Click the link to sign in.
-            </p>
+            <p>We sent a confirmation link to <strong>{email}</strong>. Click the link to activate your account and sign in.</p>
           </div>
         ) : (
           <>
-            <h2 className={styles.cardTitle}>Sign in</h2>
-            <p className={styles.cardDescription}>
-              Enter your email and we'll send you a magic link. No password needed.
-            </p>
+            <div className={styles.tabs} role="tablist">
+              <button
+                role="tab"
+                aria-selected={mode === 'signin'}
+                className={`${styles.tab} ${mode === 'signin' ? styles.tabActive : ''}`}
+                onClick={() => { setMode('signin'); setError(null); }}
+              >
+                Sign in
+              </button>
+              <button
+                role="tab"
+                aria-selected={mode === 'signup'}
+                className={`${styles.tab} ${mode === 'signup' ? styles.tabActive : ''}`}
+                onClick={() => { setMode('signup'); setError(null); }}
+              >
+                Create account
+              </button>
+            </div>
 
             <form onSubmit={handleSubmit} className={styles.form} noValidate>
               <div className={styles.field}>
-                <label htmlFor="email" className={styles.label}>
-                  Email address
-                </label>
+                <label htmlFor="email" className={styles.label}>Email address</label>
                 <input
                   id="email"
                   type="email"
@@ -92,6 +114,25 @@ export default function LoginPage() {
                 />
               </div>
 
+              <div className={styles.field}>
+                <label htmlFor="password" className={styles.label}>
+                  {mode === 'signup' ? 'Create password' : 'Password'}
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  name="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={mode === 'signup' ? 'At least 8 characters' : ''}
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                  required
+                  aria-required="true"
+                  minLength={6}
+                  className={styles.input}
+                />
+              </div>
+
               {error && (
                 <div role="alert" className={styles.error}>
                   {error}
@@ -100,10 +141,12 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading || !email.trim()}
+                disabled={loading || !email.trim() || !password.trim()}
                 className={styles.button}
               >
-                {loading ? 'Sending…' : 'Send magic link'}
+                {loading
+                  ? mode === 'signup' ? 'Creating account…' : 'Signing in…'
+                  : mode === 'signup' ? 'Create account' : 'Sign in'}
               </button>
             </form>
           </>
