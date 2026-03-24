@@ -60,6 +60,12 @@
 - [x] ~~Wire up per-warranty notification preferences~~ — Added to add form: 30/7/1 day + expiry toggles, saved to DB with warranty insert
 - [x] ~~Update cron to respect per-warranty notification preferences~~ — Already done in cron route (reads `notify_30_days`, `notify_7_days`, `notify_1_day`, `notify_expired`)
 
+### P1 — Custom Notification Days
+
+- [x] ~~Replace fixed boolean columns with `notification_days INTEGER[]`~~ — migration `003_custom_notification_days.sql` drops old columns, adds `notification_days INTEGER[] DEFAULT ARRAY[30,7,1,0]`
+- [x] ~~Dynamic add/remove list in add form~~ — shows days as list items with × buttons, input + Add button to create new days (0–365), sorted descending
+- [x] ~~Cron reads `notification_days` array~~ — iterates array, finds matching days, sends one notification per matching day, supports unlimited custom days
+
 ---
 
 ## Phase 3 — Core Feature Completions
