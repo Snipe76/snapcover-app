@@ -439,20 +439,22 @@
   .feature-grid { grid-template-columns: 1fr 1fr; }
 }
 
-@media (max-width: 480px) {
-  .feature-grid { grid-template-columns: 1fr; }
-}
-
-/* Center the eyebrow + heading on mobile to match the How section */
+/* Center the eyebrow + heading on mobile */
 @media (max-width: 768px) {
   .features .section-eyebrow,
   .features .section-heading {
     text-align: center;
   }
+  .feature-grid {
+    justify-content: center;
+  }
 }
 
 @media (max-width: 480px) {
-  .feature-grid { grid-template-columns: 1fr; }
+  .feature-grid {
+    grid-template-columns: 1fr;
+    justify-content: center;
+  }
 }
 
 .feature-item {
