@@ -1,0 +1,117 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ─── Filters ─────────────────────────────────────────────────────────────── */
+.filters {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: var(--space-1);
+}
+.filters::-webkit-scrollbar { display: none; }
+
+.filterChip {
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  transition:
+    background  var(--duration-micro) var(--ease-out),
+    color       var(--duration-micro) var(--ease-out),
+    border-color var(--duration-micro) var(--ease-out);
+  white-space: nowrap;
+}
+
+.filterChip:hover {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+.filterChipActive {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.filterChipActive:hover {
+  background: var(--accent);
+  color: white;
+}
+
+/* ─── Count ───────────────────────────────────────────────────────────────── */
+.count {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  padding-left: var(--space-1);
+}
+
+/* ─── List ────────────────────────────────────────────────────────────────── */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ─── Empty ───────────────────────────────────────────────────────────────── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-16) var(--space-6);
+  gap: var(--space-4);
+}
+
+.emptyIcon {
+  opacity: 0.6;
+}
+
+.emptyTitle {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.emptyText {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 280px;
+}
+
+.emptyCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  padding: 0 var(--space-6);
+  background: var(--accent);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    opacity  var(--duration-micro) var(--ease-out),
+    transform var(--duration-micro) var(--ease-out);
+}
+
+.emptyCta:hover { text-decoration: none; opacity: 0.9; }
+.emptyCta:active { transform: scale(0.97); }
+
+.emptyFilter {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--text-tertiary);
+  font-size: 15px;
+}

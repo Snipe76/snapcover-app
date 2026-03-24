@@ -1,0 +1,84 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 200;
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+.dialog {
+  position: fixed;
+  bottom: calc(var(--safe-area-bottom) + var(--space-4));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - var(--space-8));
+  max-width: 380px;
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  z-index: 201;
+  overflow: hidden;
+  animation: slideUp var(--duration-normal) var(--ease-out);
+}
+
+@media (min-width: 640px) {
+  .dialog {
+    bottom: 50%;
+    left: 50%;
+    transform: translate(-50%, 50%);
+  }
+}
+
+.content {
+  padding: var(--space-6) var(--space-6) var(--space-4);
+}
+
+.title {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.body {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border);
+}
+
+.actionBtn {
+  flex: 1;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-weight: 600;
+  transition:
+    opacity  var(--duration-micro) var(--ease-out),
+    transform var(--duration-micro) var(--ease-out);
+}
+
+.actionBtn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.primary {
+  background: var(--accent);
+  color: white;
+}
+
+.secondary {
+  background: var(--surface);
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+.destructive {
+  background: var(--danger);
+  color: white;
+}

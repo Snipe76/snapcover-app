@@ -1,0 +1,113 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--header-height);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+
+@media (prefers-color-scheme: dark) {
+  .header {
+    background: rgba(13, 13, 13, 0.8);
+  }
+}
+
+.headerInner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-4);
+}
+
+.headerTitle {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+}
+
+.main {
+  min-height: calc(100dvh - var(--header-height) - var(--nav-height));
+  padding-bottom: calc(var(--nav-height) + var(--safe-area-bottom));
+}
+
+/* ─── Bottom Navigation ───────────────────────────────────────────────────── */
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--nav-height) + var(--safe-area-bottom));
+  padding-bottom: var(--safe-area-bottom);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  z-index: 100;
+}
+
+@media (prefers-color-scheme: dark) {
+  .nav {
+    background: rgba(13, 13, 13, 0.9);
+  }
+}
+
+.navItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: var(--space-2) 0;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  transition: color var(--duration-micro) var(--ease-out);
+  min-width: 64px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.navItem:hover { color: var(--text-secondary); }
+.navItem:active { transform: scale(0.95); }
+
+.navItemActive {
+  color: var(--accent);
+}
+
+/* ─── FAB Button (center) ─────────────────────────────────────────────────── */
+.navFab {
+  width: 48px;
+  height: 48px;
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+  margin-top: -16px;
+  transition:
+    transform  var(--duration-micro) var(--ease-out),
+    box-shadow var(--duration-micro) var(--ease-out);
+}
+
+.navItem:hover .navFab {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 122, 255, 0.5);
+}
+
+.navItem:active .navFab {
+  transform: scale(0.95);
+}

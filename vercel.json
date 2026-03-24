@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": {
+    "warm": [
+      {
+        "path": "/api/cron/check-expiry",
+        "schedule": "0 8 * * *"
+      }
+    ]
+  },
+  "headers": [
+    {
+      "source": "/api/cron/check-expiry",
+      "headers": [
+        { "key": "Authorization", "value": "Bearer {{CRON_SECRET}}" }
+      ]
+    }
+  ]
+}

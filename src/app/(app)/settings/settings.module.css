@@ -1,0 +1,222 @@
+.container {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  padding-left: var(--space-1);
+}
+
+.card {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+}
+
+.row:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
+.rowLabel {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.rowValue {
+  font-size: 15px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+/* ─── Toggle Rows ──────────────────────────────────────────────────────────── */
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+}
+
+.toggleRow:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
+.toggle {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  background: var(--border);
+  border-radius: var(--radius-full);
+  transition: background var(--duration-micro) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.toggleOn {
+  background: var(--accent);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  transition: transform var(--duration-micro) var(--ease-out);
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(20px);
+}
+
+/* ─── Action Row ───────────────────────────────────────────────────────────── */
+.actionRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  color: var(--text-secondary);
+  transition: color var(--duration-micro) var(--ease-out);
+}
+
+.actionRow:hover {
+  color: var(--text-primary);
+}
+
+.rowLabelDanger {
+  font-size: 15px;
+  color: var(--danger);
+}
+
+/* ─── Card Variants ────────────────────────────────────────────────────────── */
+.cardDanger .actionRow {
+  color: var(--danger);
+}
+
+.cardDanger .actionRow:hover {
+  background: rgba(255, 59, 48, 0.04);
+}
+
+/* ─── Hint ─────────────────────────────────────────────────────────────────── */
+.hint {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  padding-left: var(--space-1);
+  line-height: 1.5;
+}
+
+/* ─── Logout ───────────────────────────────────────────────────────────────── */
+.logoutBtn {
+  width: 100%;
+  height: 50px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 600;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition:
+    background  var(--duration-micro) var(--ease-out),
+    transform   var(--duration-micro) var(--ease-out);
+}
+
+.logoutBtn:hover:not(:disabled) { background: var(--surface-elevated); }
+.logoutBtn:active:not(:disabled) { transform: scale(0.98); }
+.logoutBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ─── Confirm Overlay ──────────────────────────────────────────────────────── */
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.confirmCard {
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  max-width: 340px;
+  width: 100%;
+  box-shadow: var(--shadow-modal);
+}
+
+.confirmTitle {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+
+.confirmBody {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--space-6);
+}
+
+.confirmActions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.confirmCancel {
+  flex: 1;
+  height: 44px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: background var(--duration-micro) var(--ease-out);
+}
+
+.confirmCancel:hover { background: var(--surface-elevated); }
+
+.confirmDelete {
+  flex: 1;
+  height: 44px;
+  background: var(--danger);
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  transition: opacity var(--duration-micro) var(--ease-out);
+}
+
+.confirmDelete:hover:not(:disabled) { opacity: 0.9; }
+.confirmDelete:disabled { opacity: 0.6; cursor: not-allowed; }
