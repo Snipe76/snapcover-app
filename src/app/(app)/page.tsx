@@ -6,11 +6,13 @@ import type { Warranty } from '@/lib/db/types';
 export default async function HomePage() {
   const supabase = await createClient();
   
-  // Debug: get session and user
+  // Try getSession first (reads cookie directly, no JWT validation)
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  console.log('[home] getSession:', !!session, 'error:', sessionError?.message);
   
-  console.log('[home] session:', !!session, 'user:', !!user, 'sessionError:', sessionError?.message, 'userError:', userError?.message);
+  // getUser() makes an API call to validate the JWT
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  console.log('[home] getUser:', !!user, 'error:', userError?.message);
 
   if (!user) {
     console.log('[home] No user, redirecting to /login');
