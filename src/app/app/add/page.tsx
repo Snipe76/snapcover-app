@@ -114,18 +114,31 @@ function AddPageInner() {
       const daysUntil = Math.round((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       const status: 'active' | 'expiring' = daysUntil <= 30 ? 'expiring' : 'active';
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('You must be signed in to add a warranty.');
+        setStep('confirm');
+        return;
+      }
+
       const { error: insertError } = await supabase.from('warranties').insert({
-        item_name:       form.item_name,
-        store_name:      form.store_name,
-        purchase_date:   form.purchase_date,
+        user_id:        user.id,
+        item_name:      form.item_name,
+        store_name:     form.store_name,
+        purchase_date:  form.purchase_date,
         warranty_months: form.warranty_months,
-        expiry_date:     expiryDateStr,
-        notes:           form.notes || null,
-        receipt_url:     receiptUrl,
+        expiry_date:    expiryDateStr,
+        notes:          form.notes || null,
+        receipt_url:    receiptUrl,
         status,
       });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('[add] insert error:', insertError);
+        setError(`Failed to save: ${insertError.message}`);
+        setStep('confirm');
+        return;
+      }
 
       router.push('/app?saved=true');
     } catch (err) {
