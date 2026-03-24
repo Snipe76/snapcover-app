@@ -192,9 +192,7 @@
   justify-content: center;
 }
 
-@media (max-width: 768px) {
-  .hero-mockup { display: none; }
-}
+/* Phone mockup visible on all screen sizes */
 
 .phone-frame {
   width: 220px;
