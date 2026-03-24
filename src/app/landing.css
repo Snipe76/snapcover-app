@@ -134,9 +134,13 @@
 @media (max-width: 768px) {
   .hero {
     grid-template-columns: 1fr;
-    padding: 40px var(--space-4) 48px;
+    padding: calc(var(--header-height) + 24px) var(--space-4) 48px;
     gap: 40px;
     text-align: center;
+  }
+
+  .hero-inner {
+    align-items: center;
   }
 }
 
@@ -246,7 +250,13 @@
   justify-content: space-between;
 }
 
-.mock-card-left { display: flex; flex-direction: column; gap: 2px; }
+.mock-card-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  min-width: 0;
+}
 
 .mock-card-name {
   font-size: 12px;
@@ -255,12 +265,16 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 130px;
+  max-width: 160px;
 }
 
 .mock-card-store {
   font-size: 10px;
   color: #98989D;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
 }
 
 .mock-badge {
