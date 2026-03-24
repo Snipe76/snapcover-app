@@ -51,17 +51,30 @@ function AddPageInner() {
   const searchParams = useSearchParams();
   const source = searchParams.get('source');
 
-  // Auto-launch based on source param
+  // ─── Camera auto-start ─────────────────────────────────────────────────
+  // Uses step as trigger (avoids stale ref on first render)
   useEffect(() => {
-    if (source === 'camera') {
+    if (step === 'capture' && source === 'camera' && !streamRef.current) {
       startCamera();
-    } else if (source === 'library') {
+    }
+  }, [step, source]);
+
+  useEffect(() => {
+    // Play video once stream is attached
+    if (streamRef.current && videoRef.current && videoRef.current.srcObject !== streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [streamRef.current]);
+
+  // ─── Handle source param on mount ──────────────────────────────────────
+  useEffect(() => {
+    if (source === 'library') {
       fileInputRef.current?.click();
     } else if (source === 'manual') {
       setOcrResult({ item_name: '', store_name: '', purchase_date: '', total: '' });
       setStep('confirm');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source]);
 
   // ─── Camera ─────────────────────────────────────────────────────────────
@@ -206,7 +219,7 @@ function AddPageInner() {
 
   // ─── Step: Capture ─────────────────────────────────────────────────────
   if (step === 'capture') {
-    const hasStream = videoRef.current?.srcObject != null;
+    const hasStream = !!streamRef.current;
 
     return (
       <div className={styles.capture}>
@@ -219,15 +232,6 @@ function AddPageInner() {
             autoPlay
             aria-label="Camera preview"
           />
-          <div className={styles.cameraOverlay} aria-hidden="true">
-            <div className={styles.cameraFrame} />
-          </div>
-
-          {!hasStream && (
-            <div className={styles.cameraStartPrompt}>
-              <p>Tap the button below to start your camera</p>
-            </div>
-          )}
         </div>
 
         <div className={styles.captureControls}>
@@ -248,15 +252,6 @@ function AddPageInner() {
               Start camera
             </button>
           )}
-        </div>
-
-        <div className={styles.captureActions}>
-          <button
-            className={styles.actionSecondary}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Choose from library
-          </button>
         </div>
 
         <input

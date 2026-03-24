@@ -17,8 +17,6 @@ export default async function NotificationsPage() {
 
   return (
     <div className={styles.container}>
-      <h2 className={styles.title}>Notifications</h2>
-
       {!notifications || notifications.length === 0 ? (
         <div className={styles.empty}>
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">

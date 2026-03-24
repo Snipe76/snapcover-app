@@ -21,19 +21,7 @@
 .cameraOverlay {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   pointer-events: none;
-}
-
-.cameraFrame {
-  width: 80%;
-  max-width: 320px;
-  aspect-ratio: 4/3;
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  border-radius: var(--radius-md);
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
 }
 
 .captureControls {
