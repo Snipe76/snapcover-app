@@ -108,6 +108,7 @@
 
 > Deferred — not in MVP scope per SPEC.md.
 
+- [ ] **Migrate receipt storage to Cloudflare R2** — Supabase free tier has 1GB storage; R2 has 10GB. Configure as S3-compatible external storage in Supabase. See `docs/storage-migration.md`.
 - [ ] VAPID key rotation workflow
 - [ ] Resend email template customization
 - [ ] Notification preference centrepiece UI (in-app notification manager)
