@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // web-push and resend are CommonJS/Node modules — keep them server-side only
+  serverExternalPackages: ['web-push', 'resend'],
 };
 
 export default nextConfig;

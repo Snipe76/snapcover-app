@@ -26,18 +26,28 @@
 
 ### P0 — Cron + Push + Email
 
-- [ ] Set `CRON_SECRET` in Vercel environment variables (generate a random 32-char string)
-- [ ] Add Vercel cron schedule to `vercel.json`:
-  ```json
-  { "crons": [{ "path": "/api/cron/check-expiry", "schedule": "0 8 * * *" }] }
-  ```
-- [ ] Generate VAPID keys (`web-push generate-vapid-keys`)
-- [ ] Add VAPID keys to Vercel env vars (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`)
-- [ ] Create `app/api/notifications/subscribe/route.ts` — save push subscription to DB
-- [ ] Create `app/api/notifications/unsubscribe/route.ts` — remove push subscription
-- [ ] Wire up service worker to call `/api/notifications/subscribe` on `pushsubscriptionchange` event
-- [ ] Integrate Resend — add `RESEND_API_KEY` to Vercel env vars
-- [ ] Replace `sendEmailFallback` `console.log` in cron route with real Resend API call
+- [x] ~~Set `CRON_SECRET` in Vercel environment variables~~ — Added to `.env.local` + vercel.json (schedule already set)
+- [x] ~~Add Vercel cron schedule to `vercel.json`~~ — Already configured
+- [x] ~~Generate VAPID keys~~ — Generated: `BLnnl43wrRq5tRqCc7skYJwfpN1Njr7-FM-4ILvYxDUkR4k0s98yEKNimXRme6pUglHpTj4lzDj9omWQ9uuu2Lk`
+- [x] ~~Add VAPID keys to Vercel env vars~~ — Added to `.env.local` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_EMAIL`)
+- [x] ~~Create `app/api/notifications/subscribe/route.ts`~~ — saves push subscription to DB, handles `update` action
+- [x] ~~Create `app/api/notifications/unsubscribe/route.ts`~~ — removes push subscription
+- [x] ~~Wire up service worker `pushsubscriptionchange` event~~ — in `public/sw.js`
+- [x] ~~Integrate Resend~~ — `RESEND_API_KEY` placeholder in `.env.local`; full Resend client in cron route
+- [x] ~~Replace email fallback with real Resend API call~~ — full HTML email template in cron route
+
+**Infrastructure added:**
+- `public/sw.js` — service worker (push + notification click + subscription change)
+- `src/lib/notifications.ts` — `subscribeToPush()`, `unsubscribeFromPush()`, `getExistingSubscription()`
+- `src/app/api/notifications/subscribe/route.ts` — POST, saves subscription
+- `src/app/api/notifications/unsubscribe/route.ts` — DELETE, removes subscription
+- `src/app/api/cron/check-expiry/route.ts` — rewritten with `web-push` (VAPID) + Resend
+- `supabase/migrations/002_notification_prefs.sql` — adds `notify_30_days`, `notify_7_days`, `notify_1_day`, `notify_expired` columns
+
+**Still needs (manual — Vercel dashboard):**
+- [ ] Add all env vars from `.env.example` to Vercel: `CRON_SECRET`, `VAPID_EMAIL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `RESEND_API_KEY`, `NEXT_PUBLIC_APP_URL`
+- [ ] Run `supabase/migrations/002_notification_prefs.sql` in Supabase SQL Editor
+- [ ] Get Resend API key from https://resend.com and add to Vercel
 - [ ] Verify cron fires correctly (check Vercel function logs after cron is live)
 
 ### P1 — Settings Notification Toggles
