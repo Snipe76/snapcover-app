@@ -56,9 +56,9 @@
 
 ### P1 — Settings Notification Toggles
 
-- [ ] Add `notification_preferences` column to `warranties` or a separate `user_preferences` table
-- [ ] Wire up Settings toggles → save preferences to DB
-- [ ] Update cron to respect per-warranty notification preferences
+- [x] ~~Add `notification_preferences` columns~~ — Done in migration `002_notification_prefs.sql`
+- [x] ~~Wire up per-warranty notification preferences~~ — Added to add form: 30/7/1 day + expiry toggles, saved to DB with warranty insert
+- [x] ~~Update cron to respect per-warranty notification preferences~~ — Already done in cron route (reads `notify_30_days`, `notify_7_days`, `notify_1_day`, `notify_expired`)
 
 ---
 

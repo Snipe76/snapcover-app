@@ -31,11 +31,9 @@ function AddPageInner() {
     purchase_date:   '',
     warranty_months: 12,
     notes:           '',
-    notify_30_days:   true,
-    notify_7_days:    true,
-    notify_1_day:     true,
-    notify_expired:   true,
+    notificationDays: [30, 7, 1, 0] as number[],
   });
+  const [newDayInput, setNewDayInput] = useState('');
   const supabase = createClient();
 
   useEffect(() => {
@@ -69,16 +67,29 @@ function AddPageInner() {
         purchase_date:   result.purchase_date,
         warranty_months: 12,
         notes:           '',
-        notify_30_days:  true,
-        notify_7_days:  true,
-        notify_1_day:   true,
-        notify_expired:  true,
+        notificationDays: [30, 7, 1, 0],
       });
       setStep('confirm');
     } catch {
       setForm((f) => ({ ...f, item_name: '', store_name: '', purchase_date: '' }));
       setStep('confirm');
     }
+  };
+
+  const addDay = () => {
+    const raw = newDayInput.trim();
+    if (!raw) return;
+    const n = parseInt(raw, 10);
+    if (isNaN(n) || n < 0 || n > 365) return;
+    if (form.notificationDays.includes(n)) {
+      setNewDayInput('');
+      return;
+    }
+    setForm((f) => ({
+      ...f,
+      notificationDays: [...f.notificationDays, n].sort((a, b) => b - a),
+    }));
+    setNewDayInput('');
   };
 
   const handleSave = async () => {
@@ -130,19 +141,16 @@ function AddPageInner() {
       }
 
       const { error: insertError } = await supabase.from('warranties').insert({
-        user_id:         user.id,
-        item_name:       form.item_name,
-        store_name:      form.store_name,
-        purchase_date:   form.purchase_date,
+        user_id:           user.id,
+        item_name:         form.item_name,
+        store_name:        form.store_name,
+        purchase_date:     form.purchase_date,
         warranty_months:  form.warranty_months,
-        expiry_date:     expiryDateStr,
-        notes:           form.notes || null,
-        receipt_url:     receiptUrl,
+        expiry_date:      expiryDateStr,
+        notes:            form.notes || null,
+        receipt_url:      receiptUrl,
         status,
-        notify_30_days:  form.notify_30_days,
-        notify_7_days:   form.notify_7_days,
-        notify_1_day:    form.notify_1_day,
-        notify_expired:  form.notify_expired,
+        notification_days: form.notificationDays,
       });
 
       if (insertError) {
@@ -266,28 +274,62 @@ function AddPageInner() {
 
           {/* Notification preferences */}
           <div className={styles.field}>
-            <p className={styles.label}>When to remind me</p>
+            <p className={styles.label}>Remind me before expiry</p>
             <div className={styles.notifyCard}>
-              {[
-                { key: 'notify_30_days',  label: '30 days before expiry' },
-                { key: 'notify_7_days',  label: '7 days before expiry'  },
-                { key: 'notify_1_day',    label: '1 day before expiry'    },
-                { key: 'notify_expired',  label: 'On expiry day'          },
-              ].map(({ key, label }) => (
-                <div key={key} className={styles.notifyRow}>
-                  <span className={styles.notifyLabel}>{label}</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={form[key as keyof typeof form] as boolean}
-                    className={`${styles.toggle} ${form[key as keyof typeof form] ? styles.toggleOn : ''}`}
-                    onClick={() => setForm((f) => ({ ...f, [key]: !f[key as keyof typeof f] }))}
-                    disabled={isSaving}
-                  >
-                    <span className={styles.toggleThumb} />
-                  </button>
-                </div>
-              ))}
+              {/* Day items */}
+              {form.notificationDays
+                .slice()
+                .sort((a, b) => b - a)
+                .map((days) => (
+                  <div key={days} className={styles.notifyRow}>
+                    <span className={styles.notifyLabel}>
+                      {days === 0 ? 'On expiry day' : `${days} day${days !== 1 ? 's' : ''} before`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          notificationDays: f.notificationDays.filter((d) => d !== days),
+                        }))
+                      }
+                      className={styles.notifyRemove}
+                      aria-label={`Remove ${days} day notification`}
+                      disabled={isSaving}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              {/* Add new */}
+              <div className={styles.notifyAddRow}>
+                <input
+                  type="number"
+                  min="0"
+                  max="365"
+                  placeholder="Days before expiry"
+                  value={newDayInput}
+                  onChange={(e) => setNewDayInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addDay();
+                    }
+                  }}
+                  className={styles.notifyAddInput}
+                  disabled={isSaving}
+                />
+                <button
+                  type="button"
+                  onClick={addDay}
+                  className={styles.notifyAddBtn}
+                  disabled={isSaving || !newDayInput.trim()}
+                >
+                  Add
+                </button>
+              </div>
             </div>
           </div>
 
