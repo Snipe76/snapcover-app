@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { WarrantyCard } from './WarrantyCard';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useFabMenu } from '@/contexts/FabMenuContext';
 import type { Warranty } from '@/lib/db/types';
 import styles from './WarrantyList.module.css';
 
@@ -17,6 +18,7 @@ interface Props {
 export function WarrantyList({ initialWarranties, userId }: Props) {
   const [warranties, setWarranties] = useState<Warranty[]>(initialWarranties);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+  const { openFabMenu } = useFabMenu();
 
   const filtered = warranties.filter((w) => {
     if (activeFilter === 'all')     return w.status !== 'archived';
@@ -44,9 +46,9 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
         <p className={styles.emptyText}>
           Tap <strong>+</strong> to add your first purchase and never lose track of a warranty again.
         </p>
-        <Link href="/add" className={styles.emptyCta}>
+        <button className={styles.emptyCta} onClick={openFabMenu}>
           Add your first warranty
-        </Link>
+        </button>
       </div>
     );
   }

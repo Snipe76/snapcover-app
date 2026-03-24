@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { FabMenuContext } from '@/contexts/FabMenuContext';
 import styles from './AppShell.module.css';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('keydown', handler);
   }, [menuOpen]);
 
+  const openFabMenu = () => setMenuOpen(true);
+
   const handleAction = (source: string) => {
     setMenuOpen(false);
     if (source === 'camera') {
@@ -60,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <>
+    <FabMenuContext.Provider value={{ openFabMenu }}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <span className={styles.headerTitle}>
@@ -204,7 +207,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span>Settings</span>
         </Link>
       </nav>
-    </>
+    </FabMenuContext.Provider>
   );
 }
 
