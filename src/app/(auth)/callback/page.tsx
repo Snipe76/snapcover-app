@@ -1,37 +1,32 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 export default function CallbackPage() {
+  const router = useRouter();
+
   useEffect(() => {
     async function handleCallback() {
       const supabase = createClient();
-
-      // getSession auto-detects PKCE callback and exchanges the code
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
         console.error('[callback] error:', error.message);
-        window.location.href = '/login?error=' + encodeURIComponent(error.message);
+        router.push('/login?error=' + encodeURIComponent(error.message));
         return;
       }
 
       if (session) {
-        window.location.href = '/';
+        router.push('/');
       } else {
-        // Try one more approach
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          window.location.href = '/';
-        } else {
-          window.location.href = '/login?error=auth_failed';
-        }
+        router.push('/login?error=auth_failed');
       }
     }
 
     handleCallback();
-  }, []);
+  }, [router]);
 
   return (
     <div style={{
