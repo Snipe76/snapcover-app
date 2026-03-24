@@ -53,37 +53,32 @@
   z-index: 100;
 }
 
-/* Flex row: left links — right links */
-.navRow {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  height: 100%;
-  padding: 0 var(--space-2);
-}
-
-/* Left side: Home + Alerts stacked vertically */
+/* Left side: Home + Alerts */
 .navLeft {
+  position: absolute;
+  left: 0;
+  bottom: calc(var(--safe-area-bottom) + 4px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0;
-  padding-bottom: 6px;
 }
 
 /* Right side: Settings */
 .navRight {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--safe-area-bottom) + 4px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-bottom: 6px;
 }
 
-/* FAB wrapper — anchors the FAB and its popover */
+/* FAB — dead center */
 .navCenter {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--safe-area-bottom) + 6px);
+  bottom: calc(var(--safe-area-bottom) + 4px);
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -101,8 +96,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: var(--space-2) var(--space-4);
+  gap: 2px;
+  padding: 4px 16px;
   color: var(--text-tertiary);
   text-decoration: none;
   font-size: 11px;
