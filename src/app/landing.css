@@ -258,6 +258,7 @@
   gap: 2px;
   flex: 1;
   min-width: 0;
+  text-align: left;
 }
 
 .mock-card-name {
@@ -265,16 +266,18 @@
   font-weight: 600;
   color: #F5F5F7;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible;
   text-overflow: ellipsis;
+  text-align: left;
 }
 
 .mock-card-store {
   font-size: 10px;
   color: #98989D;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible;
   text-overflow: ellipsis;
+  text-align: left;
 }
 
 .mock-badge {
