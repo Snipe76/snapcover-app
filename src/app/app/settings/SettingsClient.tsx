@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { getExistingSubscription, subscribeToPush, unsubscribeFromPush } from '@/lib/notifications';
-import styles from './SettingsClient.module.css';
+import styles from './settings.module.css';
 
 interface SettingsClientProps {
   userId: string;
