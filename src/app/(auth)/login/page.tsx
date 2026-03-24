@@ -1,16 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import styles from './login.module.css';
+
+type Step = 'form' | 'confirming' | 'confirmed' | 'magic_sent';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
@@ -20,30 +21,54 @@ export default function LoginPage() {
 
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password.trim(),
       });
+
       setLoading(false);
-      if (error) {
-        setError(error.message);
+
+      if (signUpError) {
+        setError(signUpError.message);
+      } else if (!data.session) {
+        // Email confirmation required — show confirmation step
+        setSuccess('Check your email for a confirmation link. Click the link to activate your account, then sign in.');
+        setMode('signup');
       } else {
-        setSuccess(true);
-      }
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim(),
-      });
-      setLoading(false);
-      if (error) {
-        setError(error.message);
-      } else {
-        // Redirect handled by the (app)/layout auth check
         window.location.href = '/';
       }
+    } else {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
+
+      setLoading(false);
+
+      if (signInError) {
+        setError(signInError.message);
+      } else {
+        window.location.href = '/';
+      }
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) return;
+    setLoading(true);
+    setError(null);
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+    });
+    setLoading(false);
+    if (resendError) {
+      setError(resendError.message);
+    } else {
+      setSuccess('Confirmation email resent! Check your inbox (and spam).');
     }
   };
 
@@ -63,26 +88,29 @@ export default function LoginPage() {
       </div>
 
       <div className={styles.card}>
-        {success ? (
-          <div className={styles.success}>
-            <div className={styles.successIcon} aria-hidden="true">
-              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <circle cx="16" cy="16" r="14" fill="var(--accent-secondary)" opacity="0.15" />
-                <circle cx="16" cy="16" r="14" stroke="var(--accent-secondary)" strokeWidth="2" />
-                <path d="M10 16l4 4 8-8" stroke="var(--accent-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <h2>Check your email</h2>
-            <p>We sent a confirmation link to <strong>{email}</strong>. Click the link to activate your account and sign in.</p>
+        {success && !error && (
+          <div className={styles.successBanner} role="status">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <circle cx="10" cy="10" r="8" stroke="var(--accent-secondary)" strokeWidth="1.5" />
+              <path d="M7 10l2 2 4-4" stroke="var(--accent-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <p>{success}</p>
+            {success.includes('Check your email') && (
+              <button className={styles.resendBtn} onClick={handleResendConfirmation} disabled={loading}>
+                {loading ? 'Sending…' : 'Resend confirmation email'}
+              </button>
+            )}
           </div>
-        ) : (
+        )}
+
+        {success && !error && mode === 'signin' ? null : (
           <>
             <div className={styles.tabs} role="tablist">
               <button
                 role="tab"
                 aria-selected={mode === 'signin'}
                 className={`${styles.tab} ${mode === 'signin' ? styles.tabActive : ''}`}
-                onClick={() => { setMode('signin'); setError(null); }}
+                onClick={() => { setMode('signin'); setError(null); setSuccess(null); }}
               >
                 Sign in
               </button>
@@ -90,7 +118,7 @@ export default function LoginPage() {
                 role="tab"
                 aria-selected={mode === 'signup'}
                 className={`${styles.tab} ${mode === 'signup' ? styles.tabActive : ''}`}
-                onClick={() => { setMode('signup'); setError(null); }}
+                onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
               >
                 Create account
               </button>
@@ -124,7 +152,7 @@ export default function LoginPage() {
                   name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === 'signup' ? 'At least 8 characters' : ''}
+                  placeholder={mode === 'signup' ? 'At least 6 characters' : ''}
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   required
                   aria-required="true"
