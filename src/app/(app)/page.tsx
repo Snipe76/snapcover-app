@@ -1,7 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
 import { WarrantyList } from '@/components/features/WarrantyList';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import type { Warranty } from '@/lib/db/types';
+
+// Force dynamic rendering so auth cookies are always read
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const supabase = await createClient();
