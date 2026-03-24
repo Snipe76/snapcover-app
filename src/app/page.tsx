@@ -126,7 +126,7 @@ export default function LandingPage() {
                   </svg>
                 </div>
                 <h3 className="step-title">We extract the details</h3>
-                <p className="step-desc">Store name, item, purchase date, and warranty length are pulled from the photo automatically. You just confirm.</p>
+                <p className="step-desc">Store name, item, purchase date, and warranty length are usually read from the photo automatically. You just confirm the details are right.</p>
               </div>
 
               <div className="step-connector" aria-hidden="true" />
@@ -140,7 +140,7 @@ export default function LandingPage() {
                   </svg>
                 </div>
                 <h3 className="step-title">Get reminded before expiry</h3>
-                <p className="step-desc">SnapCover sends you a notification 30 days, 7 days, and 1 day before your warranty expires. No more guessing.</p>
+                <p className="step-desc">Choose when you want to be reminded — days before expiry, custom to each warranty. Push notification or email, you pick.</p>
               </div>
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function LandingPage() {
                     </svg>
                   ),
                   title: 'Zero effort to add',
-                  desc: 'Snap a receipt. We do the rest. No forms to fill out, no manual entry required.',
+                  desc: 'Snap a receipt. We read the details automatically — you just confirm they\'re right.',
                 },
                 {
                   icon: (
@@ -171,7 +171,7 @@ export default function LandingPage() {
                     </svg>
                   ),
                   title: 'Private by design',
-                  desc: 'Your data is yours. No third-party trackers, no data brokering. Ever.',
+                  desc: 'We don\'t sell or share your data. Ever. Your receipts and warranty info stay yours.',
                 },
                 {
                   icon: (
@@ -181,7 +181,7 @@ export default function LandingPage() {
                     </svg>
                   ),
                   title: 'Timely reminders',
-                  desc: 'Notified 30, 7, and 1 day before expiry. Pick which reminders you want.',
+                  desc: 'Choose your reminder schedule per warranty. Any days, any combination.',
                 },
                 {
                   icon: (
@@ -201,8 +201,8 @@ export default function LandingPage() {
                       <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.75" />
                     </svg>
                   ),
-                  title: 'Works offline',
-                  desc: 'Add warranties and view your list even without an internet connection.',
+                  title: 'Access from anywhere',
+                  desc: 'Your warranties live in the cloud, not on your phone. Sign in from any device, anywhere.',
                 },
                 {
                   icon: (
@@ -212,7 +212,7 @@ export default function LandingPage() {
                     </svg>
                   ),
                   title: 'Beautiful on any device',
-                  desc: 'Designed native-first for iPhone and Android. Feels like the apps you already love.',
+                  desc: 'Responsive design that looks great on your phone, tablet, or desktop browser.',
                 },
               ].map((f) => (
                 <div className="feature-item" key={f.title}>
