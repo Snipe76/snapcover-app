@@ -21,35 +21,46 @@ export default function LoginPage() {
     setError(null);
     setSuccess(null);
 
-    if (mode === 'signup') {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password.trim(),
-      });
+    console.log('[login] Attempting', mode, 'for', email);
 
-      setLoading(false);
+    try {
+      if (mode === 'signup') {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: password.trim(),
+        });
 
-      if (signUpError) {
-        setError(signUpError.message);
-      } else if (!data.session) {
-        // Email confirmation required
-        setSuccess('Check your email for a confirmation link. Click it, then come back and sign in with your password.');
+        setLoading(false);
+        console.log('[login] signUp result:', { hasData: !!data, hasError: !!signUpError, error: signUpError?.message, hasSession: !!data?.session });
+
+        if (signUpError) {
+          setError(signUpError.message);
+        } else if (!data.session) {
+          // Email confirmation required
+          setSuccess('Check your email for a confirmation link. Click it, then come back and sign in with your password.');
+        } else {
+          window.location.href = '/';
+        }
       } else {
-        window.location.href = '/';
-      }
-    } else {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim(),
-      });
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password.trim(),
+        });
 
+        setLoading(false);
+        console.log('[login] signIn result:', { error: signInError?.message, code: signInError?.code });
+
+        if (signInError) {
+          setError(signInError.message);
+        } else {
+          console.log('[login] Sign in successful, redirecting to /');
+          window.location.href = '/';
+        }
+      }
+    } catch (err) {
+      console.error('[login] Unexpected error:', err);
       setLoading(false);
-
-      if (signInError) {
-        setError(signInError.message);
-      } else {
-        window.location.href = '/';
-      }
+      setError('Something went wrong. Check the browser console for details.');
     }
   };
 
