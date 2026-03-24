@@ -445,20 +445,26 @@
   .features .section-heading {
     text-align: center;
   }
-  .feature-grid {
-    justify-content: center;
-  }
 }
 
 @media (max-width: 480px) {
   .feature-grid {
     grid-template-columns: 1fr;
-    justify-content: center;
   }
 }
 
 .feature-item {
   display: flex;
+  text-align: left;
+  align-items: flex-start;
+}
+
+@media (max-width: 768px) {
+  .feature-item {
+    text-align: center;
+    align-items: center;
+  }
+}
   flex-direction: column;
   gap: var(--space-2);
 }

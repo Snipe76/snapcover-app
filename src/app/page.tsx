@@ -148,7 +148,7 @@ export default function LandingPage() {
 
         {/* Features */}
         <section className="features" aria-labelledby="features-heading">
-          <div className="features-inner">
+          <div className="features-inner" style={{ textAlign: 'center' }}>
             <p className="section-eyebrow">Everything you need</p>
             <h2 id="features-heading" className="section-heading">Built for the way you think</h2>
 
