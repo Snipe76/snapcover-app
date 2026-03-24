@@ -8,47 +8,15 @@ export default function CallbackPage() {
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    async function exchangeCode() {
-      // Clear any stale auth cookies from previous flows
-      document.cookie = 'sb-access-token=; path=/; max-age=0';
-      document.cookie = 'sb-refresh-token=; path=/; max-age=0';
-
+    async function handleCallback() {
       const supabase = createClient();
-      const params = new URL(window.location.href);
 
-      // Get the code from URL params (PKCE flow from Supabase magic link)
-      const code = params.searchParams.get('code');
-
-      if (!code) {
-        // No code in URL — try getSession which may auto-detect the session
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('[callback] getSession error:', error.message);
-          setErrorMessage(error.message);
-          setStatus('error');
-          setTimeout(() => {
-            window.location.href = `/login?error=${encodeURIComponent(error.message)}`;
-          }, 2000);
-          return;
-        }
-        if (session) {
-          console.log('[callback] Session from getSession:', session.user.id);
-          setStatus('success');
-          setTimeout(() => { window.location.href = '/'; }, 500);
-        } else {
-          setErrorMessage('No session found');
-          setStatus('error');
-          setTimeout(() => { window.location.href = '/login?error=no_session'; }, 2000);
-        }
-        return;
-      }
-
-      // We have a code — this is PKCE callback. Explicitly exchange it.
-      console.log('[callback] Exchanging PKCE code:', code.slice(0, 20) + '...');
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      // Attempt to get the session — Supabase auto-detects PKCE callback from URL
+      // and exchanges the code for a session if present
+      const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
-        console.error('[callback] exchangeCodeForSession error:', error.message, error.code);
+        console.error('[callback] getSession error:', error.message, error.code);
         setErrorMessage(error.message);
         setStatus('error');
         setTimeout(() => {
@@ -57,18 +25,35 @@ export default function CallbackPage() {
         return;
       }
 
-      if (data.session) {
-        console.log('[callback] Session created via exchange:', data.session.user.id);
+      if (session) {
+        console.log('[callback] Session found, user:', session.user.id);
         setStatus('success');
         setTimeout(() => { window.location.href = '/'; }, 500);
       } else {
-        setErrorMessage('No session returned after code exchange');
-        setStatus('error');
-        setTimeout(() => { window.location.href = '/login?error=no_session'; }, 2000);
+        // No session — try getUser which forces a server check
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) {
+          console.error('[callback] getUser error:', userError.message);
+          setErrorMessage(userError.message);
+          setStatus('error');
+          setTimeout(() => {
+            window.location.href = `/login?error=${encodeURIComponent(userError.message)}`;
+          }, 2000);
+          return;
+        }
+        if (user) {
+          console.log('[callback] User found via getUser:', user.id);
+          setStatus('success');
+          setTimeout(() => { window.location.href = '/'; }, 500);
+        } else {
+          setErrorMessage('Authentication did not create a session');
+          setStatus('error');
+          setTimeout(() => { window.location.href = '/login?error=no_session'; }, 2000);
+        }
       }
     }
 
-    exchangeCode();
+    handleCallback();
   }, []);
 
   return (
