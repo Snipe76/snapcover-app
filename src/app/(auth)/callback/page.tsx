@@ -9,16 +9,19 @@ export default function CallbackPage() {
 
   useEffect(() => {
     async function exchangeCode() {
+      // Clear any stale auth cookies from previous auth flows
+      document.cookie = 'sb-access-token=; path=/; max-age=0';
+      document.cookie = 'sb-refresh-token=; path=/; max-age=0';
+
       const supabase = createClient();
-      
-      // getSession auto-exchanges the PKCE token from the URL
+
+      // getSession auto-exchanges the PKCE token from the URL hash/params
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
-        console.error('[callback] Auth error:', error.message);
+        console.error('[callback] Auth error:', error.message, error.code);
         setErrorMessage(error.message);
         setStatus('error');
-        // Redirect to login after short delay
         setTimeout(() => {
           window.location.href = `/login?error=${encodeURIComponent(error.message)}`;
         }, 2000);
@@ -28,14 +31,20 @@ export default function CallbackPage() {
       if (session) {
         console.log('[callback] Session obtained, user:', session.user.id);
         setStatus('success');
-        // Redirect to home
         setTimeout(() => {
           window.location.href = '/';
         }, 500);
       } else {
-        // No session and no error — might be a token without a session yet
-        setErrorMessage('No session returned');
-        setStatus('error');
+        // No session yet — try refreshing
+        const { data: { user }, error: refreshError } = await supabase.auth.getUser();
+        if (refreshError || !user) {
+          console.error('[callback] No session after refresh:', refreshError);
+          setErrorMessage(refreshError?.message ?? 'No session returned');
+          setStatus('error');
+          setTimeout(() => {
+            window.location.href = '/login?error=session_not_created';
+          }, 2000);
+        }
       }
     }
 
@@ -66,7 +75,7 @@ export default function CallbackPage() {
         </>
       )}
       {status === 'error' && (
-        <p style={{ color: '#ff3b30', fontSize: 15, margin: 0 }}>
+        <p style={{ color: '#ff3b30', fontSize: 15, margin: 0, textAlign: 'center', maxWidth: 280, padding: '0 24px' }}>
           Sign-in failed: {errorMessage}
         </p>
       )}
