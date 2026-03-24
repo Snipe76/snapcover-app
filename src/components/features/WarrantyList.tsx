@@ -72,7 +72,7 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
 
       {/* Count */}
       <p className={styles.count} aria-live="polite">
-        {filtered.length} warranty{filtered.length !== 1 ? 'ies' : ''}
+        {filtered.length} warranty{filtered.length !== 1 ? 's' : ''}
         {activeFilter !== 'all' ? ` · ${activeFilter}` : ''}
       </p>
 

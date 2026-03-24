@@ -8,9 +8,10 @@ import styles from './SettingsClient.module.css';
 
 interface SettingsClientProps {
   userId: string;
+  email: string;
 }
 
-export function SettingsClient({ userId }: SettingsClientProps) {
+export function SettingsClient({ userId, email }: SettingsClientProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -115,6 +116,17 @@ export function SettingsClient({ userId }: SettingsClientProps) {
 
   return (
     <>
+      {/* Account */}
+      <section className={styles.section} aria-labelledby="account-heading">
+        <h3 id="account-heading" className={styles.sectionTitle}>Account</h3>
+        <div className={styles.card}>
+          <div className={styles.row}>
+            <span className={styles.rowLabel}>Email</span>
+            <span className={styles.rowValue}>{email}</span>
+          </div>
+        </div>
+      </section>
+
       {/* Push Notifications */}
       <section className={styles.section} aria-labelledby="push-heading">
         <h3 id="push-heading" className={styles.sectionTitle}>Push Notifications</h3>

@@ -27,17 +27,17 @@ export default function LandingPage() {
         {/* Hero */}
         <section className="hero" aria-labelledby="hero-heading">
           <div className="hero-inner">
-            <p className="hero-eyebrow">Warranty tracking, reinvented</p>
+            <p className="hero-eyebrow">Receipt saving + warranty tracking</p>
             <h1 id="hero-heading" className="hero-heading">
-              Never lose a<br />warranty again
+              Your receipts.<br />Your warranties.<br />One app.
             </h1>
             <p className="hero-sub">
-              Photograph your receipt. SnapCover reads it, saves the details,
-              and reminds you before your warranty expires. That&apos;s it.
+              Save your receipts by photo. SnapCover reads them, tracks every warranty,
+              and reminds you before they expire — so you never miss a claim.
             </p>
             <div className="hero-actions">
               <Link href="/login" className="btn-primary">
-                Start for free
+                Get started free
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -229,7 +229,7 @@ export default function LandingPage() {
         <section className="cta-section" aria-labelledby="cta-heading">
           <div className="cta-inner">
             <h2 id="cta-heading" className="cta-heading">Ready to protect your purchases?</h2>
-            <p className="cta-sub">Free forever. No credit card. Takes 30 seconds to start.</p>
+            <p className="cta-sub">No credit card required. Core features are free, forever.</p>
             <Link href="/login" className="btn-primary btn-large">
               Create your account
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">

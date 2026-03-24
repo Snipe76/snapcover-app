@@ -19,7 +19,7 @@ export function ExpiryBadge({ expiryDate, status }: Props) {
   );
 }
 
-function getBadgeContent(expiryDate: string, status: WarrantyStatus): {
+function getBadgeContent(expiryDate: string, _status: WarrantyStatus): {
   text: string;
   variant: 'active' | 'expiring' | 'expired';
 } {
@@ -29,22 +29,17 @@ function getBadgeContent(expiryDate: string, status: WarrantyStatus): {
   expiry.setHours(0, 0, 0, 0);
   const diff = Math.round((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (status === 'expired') {
-    if (diff === 0)  return { text: 'Expires today', variant: 'expired' };
+  // Always derive status from actual date — don't trust the DB field
+  if (diff < 0) {
     if (diff === -1) return { text: 'Expired yesterday', variant: 'expired' };
     return { text: `Expired ${Math.abs(diff)}d ago`, variant: 'expired' };
   }
 
-  if (status === 'expiring' || diff <= 30) {
-    if (diff === 0)  return { text: 'Expires today', variant: 'expiring' };
-    if (diff === 1)  return { text: 'Tomorrow', variant: 'expiring' };
-    if (diff <= 7)   return { text: `${diff} days`, variant: 'expiring' };
-    return { text: `${diff} days`, variant: 'expiring' };
-  }
-
-  if (diff <= 90) {
-    return { text: `${diff} days`, variant: 'active' };
-  }
+  if (diff === 0)  return { text: 'Expires today',  variant: 'expired'  };
+  if (diff === 1)  return { text: 'Tomorrow',      variant: 'expiring' };
+  if (diff <= 7)   return { text: `${diff} days`,   variant: 'expiring' };
+  if (diff <= 30)  return { text: `${diff} days`,   variant: 'expiring' };
+  if (diff <= 90)  return { text: `${diff} days`,   variant: 'active'   };
 
   const months = Math.round(diff / 30);
   return { text: `${months}mo left`, variant: 'active' };
