@@ -1,13 +1,17 @@
 import { createClient } from '@/lib/supabase/server';
 import { WarrantyList } from '@/components/features/WarrantyList';
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
+import { headers } from 'next/headers';
 import type { Warranty } from '@/lib/db/types';
 
 // Force dynamic rendering so auth cookies are always read
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-no-store';
 
 export default async function HomePage() {
+  // Read headers to force dynamic rendering
+  const headersList = await headers();
+  headersList.get('cookie'); // touch headers
+
   const supabase = await createClient();
   
   // Try getSession first (reads cookie directly, no JWT validation)
