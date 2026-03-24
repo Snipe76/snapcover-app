@@ -45,9 +45,13 @@
 - `supabase/migrations/002_notification_prefs.sql` — adds `notify_30_days`, `notify_7_days`, `notify_1_day`, `notify_expired` columns
 
 **Still needs (manual — Vercel dashboard):**
-- [ ] Add all env vars from `.env.example` to Vercel: `CRON_SECRET`, `VAPID_EMAIL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `RESEND_API_KEY`, `NEXT_PUBLIC_APP_URL`
-- [ ] Run `supabase/migrations/002_notification_prefs.sql` in Supabase SQL Editor
-- [ ] Get Resend API key from https://resend.com and add to Vercel
+- [ ] ~~Add all env vars from `.env.example` to Vercel~~ — Done via Vercel CLI + Vercel API ✅
+- [ ] ~~Run `supabase/migrations/002_notification_prefs.sql`~~ — Done via direct Postgres connection ✅
+- [ ] Get Resend API key from https://resend.com and add to Vercel `RESEND_API_KEY`
+
+**Automated via Vercel API (2026-03-24):**
+- Vercel env vars set: `CRON_SECRET`, `VAPID_EMAIL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `NEXT_PUBLIC_APP_URL`
+- Supabase migration `002_notification_prefs.sql` — 4 columns added to `warranties` table: `notify_30_days`, `notify_7_days`, `notify_1_day`, `notify_expired`
 - [ ] Verify cron fires correctly (check Vercel function logs after cron is live)
 
 ### P1 — Settings Notification Toggles

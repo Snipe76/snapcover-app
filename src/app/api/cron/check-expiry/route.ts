@@ -3,23 +3,30 @@ import { createClient } from '@/lib/supabase/server';
 import webpush from 'web-push';
 import { Resend } from 'resend';
 
-// ─── Configure VAPID ─────────────────────────────────────────────────────────
-webpush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL ?? 'noreply@snapcover.app'}`,
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
+// ─── Lazy VAPID setup — only called at request time, not build time ──────────
+function ensureVapid() {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+  webpush.setVapidDetails(
+    `mailto:${process.env.VAPID_EMAIL ?? 'noreply@snapcover.app'}`,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
 
-// ─── Configure Resend ──────────────────────────────────────────────────────────
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+// ─── Lazy Resend client ────────────────────────────────────────────────────────
+function getResend() {
+  if (!process.env.RESEND_API_KEY) return null;
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 const FROM_EMAIL = 'SnapCover <noreply@snapcover.app>';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://snapcover-app.vercel.app';
 
 // ─── GET /api/cron/check-expiry ───────────────────────────────────────────────
 export async function GET(request: Request) {
+  // Lazy-init services (env vars not available at build time)
+  ensureVapid();
+
   // Verify cron secret
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -194,7 +201,8 @@ function getPushBody(itemName: string, type: string): string {
 }
 
 async function sendEmail(email: string, itemName: string, type: string): Promise<boolean> {
-  if (!resend) {
+  const client = getResend();
+  if (!client) {
     console.log(`[Email fallback] Would send "${getPushBody(itemName, type)}" to ${email}`);
     return false;
   }
@@ -202,7 +210,7 @@ async function sendEmail(email: string, itemName: string, type: string): Promise
   const { subject, preheader, message } = getEmailContent(itemName, type);
 
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await client.emails.send({
       from: FROM_EMAIL,
       to: email,
       subject,
