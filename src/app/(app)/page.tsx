@@ -5,9 +5,17 @@ import type { Warranty } from '@/lib/db/types';
 
 export default async function HomePage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  
+  // Debug: get session and user
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  
+  console.log('[home] session:', !!session, 'user:', !!user, 'sessionError:', sessionError?.message, 'userError:', userError?.message);
 
-  if (!user) redirect('/login');
+  if (!user) {
+    console.log('[home] No user, redirecting to /login');
+    redirect('/login');
+  }
 
   const { data: warranties } = await supabase
     .from('warranties')
