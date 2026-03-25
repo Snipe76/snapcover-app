@@ -10,7 +10,7 @@ import styles from './WarrantyCard.module.css';
 
 interface Props {
   warranty: Warranty;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 export function WarrantyCard({ warranty, onDelete }: Props) {
@@ -21,7 +21,7 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
   const handleDelete = async () => {
     setDeleting(true);
     await supabase.from('warranties').delete().eq('id', warranty.id);
-    onDelete(warranty.id);
+    onDelete?.(warranty.id);
     setShowDelete(false);
     setDeleting(false);
   };

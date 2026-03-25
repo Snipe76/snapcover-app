@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import type { Warranty } from '@/lib/db/types';
 import { ExpiryBadge } from '@/components/features/ExpiryBadge';
+import { ReceiptLightbox } from './ReceiptLightbox';
 import styles from './warranty.module.css';
 
 interface Props {
@@ -39,12 +40,23 @@ export default async function WarrantyDetailPage({ params }: Props) {
       ? `${w.warranty_months} month${w.warranty_months !== 1 ? 's' : ''}`
       : `${w.warranty_months / 12} year${w.warranty_months !== 12 ? 's' : ''}`;
 
+  const formatReminderTime = (time: string) => {
+    if (!time) return 'Default (9:00 AM)';
+    const [h, m] = time.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour = h % 12 || 12;
+    return `${hour}:${m.toString().padStart(2, '0')} ${period}`;
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.itemName}>{w.item_name}</h1>
-        <p className={styles.storeName}>{w.store_name}</p>
-        <div className={styles.badge}>
+        <div className={styles.headerTop}>
+          <div>
+            <p className={styles.category}>{w.category ?? 'Other'}</p>
+            <h1 className={styles.itemName}>{w.item_name}</h1>
+            <p className={styles.storeName}>{w.store_name}</p>
+          </div>
           <ExpiryBadge expiryDate={w.expiry_date} status={w.status} />
         </div>
       </div>
@@ -64,6 +76,30 @@ export default async function WarrantyDetailPage({ params }: Props) {
             <dt>Expires</dt>
             <dd>{expiryDate}</dd>
           </div>
+          {w.reminder_time && (
+            <div className={styles.detailRow}>
+              <dt>Reminder time</dt>
+              <dd>{formatReminderTime(w.reminder_time)}</dd>
+            </div>
+          )}
+          {w.price_paid != null && (
+            <div className={styles.detailRow}>
+              <dt>Price paid</dt>
+              <dd>${Number(w.price_paid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
+            </div>
+          )}
+          {w.order_number && (
+            <div className={styles.detailRow}>
+              <dt>Order number</dt>
+              <dd className={styles.mono}>{w.order_number}</dd>
+            </div>
+          )}
+          {w.serial_number && (
+            <div className={styles.detailRow}>
+              <dt>Serial / model</dt>
+              <dd className={styles.mono}>{w.serial_number}</dd>
+            </div>
+          )}
           {w.notes && (
             <div className={styles.detailRow}>
               <dt>Notes</dt>
@@ -73,24 +109,48 @@ export default async function WarrantyDetailPage({ params }: Props) {
         </dl>
       </section>
 
+      {w.notification_days && Array.isArray(w.notification_days) && w.notification_days.length > 0 && (
+        <section className={styles.section} aria-labelledby="notify-heading">
+          <h2 id="notify-heading" className={styles.sectionTitle}>Reminders</h2>
+          <div className={styles.reminderList}>
+            {[...w.notification_days].sort((a, b) => b - a).map((days) => (
+              <span key={days} className={styles.reminderChip}>
+                {days === 0 ? 'Expiry day' : `${days} day${days !== 1 ? 's' : ''} before`}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
       {w.receipt_url && (
         <section className={styles.section} aria-labelledby="receipt-heading">
           <h2 id="receipt-heading" className={styles.sectionTitle}>Receipt</h2>
-          <a
-            href={w.receipt_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.receiptLink}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.75" />
-              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-              <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            View receipt
-          </a>
+          <ReceiptLightbox src={w.receipt_url} alt={`Receipt for ${w.item_name}`} />
         </section>
       )}
+
+      <div className={styles.deleteSection}>
+        <form
+          action={async () => {
+            'use server';
+            const supabase = await createClient();
+            await supabase.from('warranties').delete().eq('id', id);
+            redirect('/app');
+          }}
+        >
+          <button
+            type="submit"
+            className={styles.deleteBtn}
+            onClick={(e) => {
+              if (!confirm('Delete this warranty? This cannot be undone.')) {
+                e.preventDefault();
+              }
+            }}
+          >
+            Delete warranty
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

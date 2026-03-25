@@ -13,6 +13,13 @@ export interface Warranty {
   status: WarrantyStatus;
   created_at: string;
   updated_at: string;
+  // New fields
+  price_paid: number | null;
+  order_number: string | null;
+  serial_number: string | null;
+  category: string;
+  reminder_time: string;
+  notification_days: number[];
 }
 
 export interface Notification {
