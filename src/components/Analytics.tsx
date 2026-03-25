@@ -1,7 +1,7 @@
 'use client';
 
 import { inject } from '@vercel/analytics';
-import { SpeedInsights } from '@vercel/speed-insights';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export function Analytics() {
   inject();
