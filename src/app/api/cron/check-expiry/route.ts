@@ -19,7 +19,7 @@ function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
 }
 
-const FROM_EMAIL = 'SnapCover <noreply@snapcover.app>';
+const FROM_EMAIL = 'SnapCover <noreply@resend.dev>';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://snapcover-app.vercel.app';
 
 // ─── GET /api/cron/check-expiry ───────────────────────────────────────────────
