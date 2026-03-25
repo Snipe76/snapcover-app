@@ -63,7 +63,108 @@
 .confirmSubtitle {
   font-size: 15px;
   color: var(--text-secondary);
+  margin-bottom: var(--space-5);
+}
+
+/* ─── Type Tabs ───────────────────────────────────────────────────────────── */
+.typeTabs {
+  display: flex;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 3px;
   margin-bottom: var(--space-6);
+}
+
+.typeTab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 40px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition:
+    background  var(--duration-micro) var(--ease-out),
+    color       var(--duration-micro) var(--ease-out);
+}
+
+.typeTab:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.typeTab:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.typeTabActive {
+  background: var(--accent);
+  color: white;
+}
+
+.typeTabActive:hover:not(:disabled) {
+  color: white;
+}
+
+/* ─── Warranty custom ─────────────────────────────────────────────────────── */
+.warrantyCustom {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.warrantyNum {
+  width: 90px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.unitToggle {
+  display: flex;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.unitBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-transform: capitalize;
+  transition:
+    background  var(--duration-micro) var(--ease-out),
+    color       var(--duration-micro) var(--ease-out);
+}
+
+.unitBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.unitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.unitBtnActive {
+  background: var(--accent);
+  color: white;
+}
+
+.unitBtnActive:hover:not(:disabled) {
+  color: white;
 }
 
 /* ─── Form ─────────────────────────────────────────────────────────────────── */
@@ -245,6 +346,14 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
+}
+
+.notifyEmpty {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--space-4);
+  margin: 0;
 }
 
 .notifyRow {

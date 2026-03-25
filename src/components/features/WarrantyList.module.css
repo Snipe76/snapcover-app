@@ -1,65 +1,352 @@
-.root {
+.wrapper {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-/* ─── Filters ─────────────────────────────────────────────────────────────── */
-.filters {
+/* ─── Search Row ──────────────────────────────────────────────────────────── */
+.searchRow {
   display: flex;
   gap: var(--space-2);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding-bottom: var(--space-1);
+  align-items: center;
 }
-.filters::-webkit-scrollbar { display: none; }
 
-.filterChip {
+.searchBar {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-tertiary);
+  pointer-events: none;
   flex-shrink: 0;
-  height: 34px;
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-full);
+}
+
+.searchInput {
+  width: 100%;
+  height: 40px;
+  padding: 0 36px 0 38px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  color: var(--text-primary);
+  transition: border-color var(--duration-micro) var(--ease-out);
+  -webkit-appearance: none;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.searchInput::placeholder { color: var(--text-tertiary); }
+
+.searchClear {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color var(--duration-micro) var(--ease-out);
+}
+
+.searchClear:hover { color: var(--text-primary); }
+
+/* ─── Sort button ─────────────────────────────────────────────────────────── */
+.sortWrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sortBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 500;
-  background: var(--surface);
   color: var(--text-secondary);
-  border: 1px solid var(--border);
+  white-space: nowrap;
+  cursor: pointer;
   transition:
     background  var(--duration-micro) var(--ease-out),
     color       var(--duration-micro) var(--ease-out),
     border-color var(--duration-micro) var(--ease-out);
-  white-space: nowrap;
 }
 
-.filterChip:hover {
+.sortBtn:hover {
   background: var(--surface-elevated);
   color: var(--text-primary);
 }
 
-.filterChipActive {
-  background: var(--accent);
-  color: white;
+.sortBtnActive {
   border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-.filterChipActive:hover {
+.sortMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 100;
+  min-width: 180px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  animation: menuIn var(--duration-micro) var(--ease-out);
+}
+
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.sortOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 10px var(--space-4);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-micro) var(--ease-out), color var(--duration-micro) var(--ease-out);
+}
+
+.sortOption:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.sortOptionActive {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sortOptionActive svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ─── Filter button ───────────────────────────────────────────────────────── */
+.filterWrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.filterBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background  var(--duration-micro) var(--ease-out),
+    color       var(--duration-micro) var(--ease-out),
+    border-color var(--duration-micro) var(--ease-out);
+}
+
+.filterBtn:hover {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+.filterBtnActive {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.filterBadge {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: var(--accent);
-  color: white;
+  flex-shrink: 0;
 }
 
-/* ─── Count ───────────────────────────────────────────────────────────────── */
-.count {
+/* ─── Filter Menu ─────────────────────────────────────────────────────────── */
+.filterMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 100;
+  min-width: 220px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  animation: menuIn var(--duration-micro) var(--ease-out);
+}
+
+.filterSection {
+  padding: var(--space-2) 0;
+}
+
+.filterSectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 4px var(--space-4) 6px;
+  margin: 0;
+}
+
+.filterOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px var(--space-4);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-micro) var(--ease-out), color var(--duration-micro) var(--ease-out);
+}
+
+.filterOption:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.filterOptionActive {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.filterOptionLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.filterOptionCount {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.filterDivider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-1) 0;
+}
+
+.filterClear {
+  display: block;
+  width: 100%;
+  padding: 10px var(--space-4);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-micro) var(--ease-out);
+}
+
+.filterClear:hover {
+  background: rgba(255, 59, 48, 0.06);
+}
+
+/* ─── Active filter chips ────────────────────────────────────────────────── */
+.activeFilters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.activeFilterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: capitalize;
+}
+
+.activeFilterChip button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+  padding: 0;
+  transition: opacity var(--duration-micro) var(--ease-out);
+}
+
+.activeFilterChip button:hover { opacity: 1; }
+
+.activeFilterCount {
   font-size: 13px;
   color: var(--text-tertiary);
-  padding-left: var(--space-1);
+  margin-left: auto;
 }
 
-/* ─── List ────────────────────────────────────────────────────────────────── */
+/* ─── No results ──────────────────────────────────────────────────────────── */
+.noResults {
+  font-size: 15px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--space-8);
+}
+
+/* ─── List ───────────────────────────────────────────────────────────────── */
 .list {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 /* ─── Empty ───────────────────────────────────────────────────────────────── */
@@ -72,14 +359,11 @@
   gap: var(--space-4);
 }
 
-.emptyIcon {
-  opacity: 0.6;
-}
-
 .emptyTitle {
   font-size: 22px;
   font-weight: 600;
   color: var(--text-primary);
+  margin: 0;
 }
 
 .emptyText {
@@ -87,6 +371,7 @@
   color: var(--text-secondary);
   line-height: 1.6;
   max-width: 280px;
+  margin: 0;
 }
 
 .emptyCta {
@@ -100,18 +385,18 @@
   border-radius: var(--radius-sm);
   font-size: 16px;
   font-weight: 600;
+  border: none;
+  cursor: pointer;
   text-decoration: none;
   transition:
     opacity  var(--duration-micro) var(--ease-out),
     transform var(--duration-micro) var(--ease-out);
 }
 
-.emptyCta:hover { text-decoration: none; opacity: 0.9; }
+.emptyCta:hover { opacity: 0.9; text-decoration: none; }
 .emptyCta:active { transform: scale(0.97); }
 
-.emptyFilter {
-  text-align: center;
-  padding: var(--space-8);
-  color: var(--text-tertiary);
-  font-size: 15px;
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

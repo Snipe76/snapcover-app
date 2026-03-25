@@ -21,6 +21,7 @@ export function ExpiryBadge({ expiryDate, status }: Props) {
     <span
       className={`${styles.badge} ${styles[variant]}`}
       aria-label={`Status: ${text}`}
+      suppressHydrationWarning
     >
       {text}
     </span>

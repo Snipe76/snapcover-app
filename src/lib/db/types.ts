@@ -1,4 +1,5 @@
 export type WarrantyStatus = 'active' | 'expiring' | 'expired' | 'archived';
+export type ItemType = 'warranty' | 'receipt';
 
 export interface Warranty {
   id: string;
@@ -20,6 +21,9 @@ export interface Warranty {
   category: string;
   reminder_time: string;
   notification_days: number[];
+  type: ItemType;
+  sort_order?: number;
+  sort_by?: string;
 }
 
 export interface Notification {

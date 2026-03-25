@@ -101,3 +101,152 @@
   border-color: var(--accent);
   text-decoration: none;
 }
+
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.typeWarranty {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
+.typeReceipt {
+  background: color-mix(in srgb, var(--accent-secondary, #34c759) 15%, transparent);
+  color: var(--accent-secondary, #34c759);
+}
+
+.categoryBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ─── Reminder Toggles ──────────────────────────────────────────────────── */
+.reminderList {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.reminderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.reminderRow:last-of-type {
+  border-bottom: none;
+}
+
+.reminderChip {
+  font-size: 15px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.reminderRemove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color var(--duration-micro) var(--ease-out), background var(--duration-micro) var(--ease-out);
+}
+
+.reminderRemove:hover:not(:disabled) {
+  color: var(--danger);
+  background: rgba(255, 59, 48, 0.08);
+}
+
+.reminderRemove:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.noReminders {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--space-4);
+  margin: 0;
+}
+
+.reminderAdd {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.reminderInput {
+  flex: 1;
+  height: 40px;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text-primary);
+  -moz-appearance: textfield;
+  outline: none;
+  transition: border-color var(--duration-micro) var(--ease-out);
+}
+
+.reminderInput::-webkit-outer-spin-button,
+.reminderInput::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.reminderInput:focus { border-color: var(--accent); }
+.reminderInput::placeholder { color: var(--text-tertiary); }
+
+.reminderAddBtn {
+  height: 40px;
+  padding: 0 var(--space-4);
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity var(--duration-micro) var(--ease-out);
+}
+
+.reminderAddBtn:hover:not(:disabled) { opacity: 0.9; }
+.reminderAddBtn:disabled { opacity: 0.5; cursor: not-allowed; }

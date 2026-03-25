@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { extractReceiptData } from '@/lib/ocr';
 import { z } from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
+import type { ItemType } from '@/lib/db/types';
 import styles from './add.module.css';
 
 const WarrantySchema = z.object({
@@ -33,28 +34,31 @@ const CATEGORIES = [
   { value: 'Other', label: 'Other' },
 ];
 
+const DEFAULT_FORM = {
+  item_name:       '',
+  store_name:      '',
+  purchase_date:   '',
+  warranty_months: 12,
+  notes:           '',
+  price_paid:      '',
+  order_number:    '',
+  serial_number:   '',
+  category:        'Other',
+  reminder_time:   '09:00',
+  notificationDays: [30, 7, 1, 0] as number[],
+};
+
 function AddPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const source = searchParams.get('source');
 
-  const [step, setStep] = useState<Step>('idle');
+  const [step, setStep]         = useState<Step>('idle');
+  const [itemType, setItemType] = useState<ItemType>('warranty');
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]       = useState<string | null>(null);
   const [warrantyUnit, setWarrantyUnit] = useState<'months' | 'years'>('months');
-  const [form, setForm] = useState({
-    item_name:       '',
-    store_name:      '',
-    purchase_date:   '',
-    warranty_months: 12,
-    notes:           '',
-    price_paid:      '',
-    order_number:    '',
-    serial_number:   '',
-    category:        'Other',
-    reminder_time:   '09:00',
-    notificationDays: [30, 7, 1, 0],
-  });
+  const [form, setForm]         = useState(DEFAULT_FORM);
   const [newDayInput, setNewDayInput] = useState('');
   const supabase = createClient();
 
@@ -82,27 +86,29 @@ function AddPageInner() {
     try {
       const result = await extractReceiptData(dataUrl);
       setForm({
-        item_name:       result.item_name,
-        store_name:      result.store_name,
-        purchase_date:   result.purchase_date,
-        warranty_months: 12,
-        notes:           '',
-        price_paid:      '',
-        order_number:    '',
-        serial_number:   '',
-        category:        'Other',
-        reminder_time:   '09:00',
-        notificationDays: [30, 7, 1, 0],
+        ...DEFAULT_FORM,
+        item_name:     result.item_name,
+        store_name:    result.store_name,
+        purchase_date: result.purchase_date,
       });
       setStep('confirm');
     } catch {
+      setForm({ ...DEFAULT_FORM, item_name: '', store_name: '', purchase_date: '' });
+      setStep('confirm');
+    }
+  };
+
+  const handleTypeSwitch = (type: ItemType) => {
+    setItemType(type);
+    // Reset form fields that are type-specific
+    if (type === 'receipt') {
       setForm((f) => ({
         ...f,
-        item_name: '', store_name: '', purchase_date: '',
         warranty_months: 12,
-        notificationDays: [30, 7, 1, 0],
+        warrantyUnit: 'months' as const,
+        notificationDays: [],
+        reminder_time: '09:00',
       }));
-      setStep('confirm');
     }
   };
 
@@ -122,12 +128,22 @@ function AddPageInner() {
   const handleSave = async () => {
     setStep('saving');
 
-    const months = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
-    const parsed = WarrantySchema.safeParse({ ...form, warranty_months: months });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0].message);
-      setStep('confirm');
-      return;
+    const isReceipt = itemType === 'receipt';
+
+    // Validate warranty-specific fields
+    if (!isReceipt) {
+      const months = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
+      const parsed = WarrantySchema.safeParse({ ...form, warranty_months: months });
+      if (!parsed.success) {
+        setError(parsed.error.issues[0].message);
+        setStep('confirm');
+        return;
+      }
+    } else {
+      // Receipt: just require item name, store, purchase date
+      if (!form.item_name.trim()) { setError('Item name is required'); setStep('confirm'); return; }
+      if (!form.store_name.trim()) { setError('Store is required'); setStep('confirm'); return; }
+      if (!form.purchase_date) { setError('Purchase date is required'); setStep('confirm'); return; }
     }
 
     try {
@@ -148,44 +164,72 @@ function AddPageInner() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setError('You must be signed in.'); setStep('confirm'); return; }
 
-      const purchaseDate = new Date(form.purchase_date);
-      const expiryDate  = new Date(purchaseDate);
-      expiryDate.setMonth(expiryDate.getMonth() + months);
-      const expiryDateStr = expiryDate.toISOString().split('T')[0];
-
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const expiry = new Date(expiryDateStr);
-      expiry.setHours(0, 0, 0, 0);
-      const daysUntil = Math.round((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      const status: 'active' | 'expiring' = daysUntil <= 30 ? 'expiring' : 'active';
-
       // Parse price_paid to numeric
-      const priceNum = form.price_paid ? parseFloat(form.price_paid.replace(/[^0-9.]/g, '')) : null;
+      const priceNum = form.price_paid
+        ? parseFloat(form.price_paid.replace(/[^0-9.]/g, ''))
+        : null;
 
-      const { error: insertError } = await supabase.from('warranties').insert({
-        user_id:          user.id,
-        item_name:        form.item_name,
-        store_name:       form.store_name,
-        purchase_date:    form.purchase_date,
-        warranty_months:  months,
-        expiry_date:      expiryDateStr,
-        notes:            form.notes || null,
-        receipt_url:      receiptUrl,
-        status,
-        notification_days: form.notificationDays,
-        price_paid:       priceNum || null,
-        order_number:     form.order_number || null,
-        serial_number:     form.serial_number || null,
-        category:         form.category,
-        reminder_time:     form.reminder_time,
-      });
+      if (isReceipt) {
+        // ── Receipt ─────────────────────────────────────────────────
+        const { error: insertError } = await supabase.from('warranties').insert({
+          user_id:       user.id,
+          item_name:     form.item_name,
+          store_name:    form.store_name,
+          purchase_date: form.purchase_date,
+          notes:         form.notes || null,
+          receipt_url:   receiptUrl,
+          price_paid:    priceNum || null,
+          order_number:  form.order_number || null,
+          serial_number: form.serial_number || null,
+          category:      form.category,
+          reminder_time: null,
+          notification_days: [],
+          status:        'active',
+          type:          'receipt',
+          warranty_months: 0,
+          expiry_date:   null,
+        });
+        if (insertError) { console.error('[add] insert receipt:', insertError); setError(`Failed: ${insertError.message}`); setStep('confirm'); return; }
+      } else {
+        // ── Warranty ───────────────────────────────────────────────
+        const months = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
+        const purchaseDate = new Date(form.purchase_date);
+        const expiryDate  = new Date(purchaseDate);
+        expiryDate.setMonth(expiryDate.getMonth() + months);
+        const expiryDateStr = expiryDate.toISOString().split('T')[0];
 
-      if (insertError) { console.error('[add] insert:', insertError); setError(`Failed: ${insertError.message}`); setStep('confirm'); return; }
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const expiry = new Date(expiryDateStr);
+        expiry.setHours(0, 0, 0, 0);
+        const daysUntil = Math.round((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const status: 'active' | 'expiring' = daysUntil <= 30 ? 'expiring' : 'active';
+
+        const { error: insertError } = await supabase.from('warranties').insert({
+          user_id:          user.id,
+          item_name:        form.item_name,
+          store_name:       form.store_name,
+          purchase_date:    form.purchase_date,
+          warranty_months:  months,
+          expiry_date:      expiryDateStr,
+          notes:            form.notes || null,
+          receipt_url:      receiptUrl,
+          status,
+          notification_days: form.notificationDays,
+          price_paid:       priceNum || null,
+          order_number:     form.order_number || null,
+          serial_number:     form.serial_number || null,
+          category:         form.category,
+          reminder_time:     form.reminder_time,
+          type:             'warranty',
+        });
+        if (insertError) { console.error('[add] insert warranty:', insertError); setError(`Failed: ${insertError.message}`); setStep('confirm'); return; }
+      }
+
       router.push('/app?saved=true');
     } catch (err) {
       console.error('Save error:', err);
-      setError('Failed to save warranty. Please try again.');
+      setError('Failed to save. Please try again.');
       setStep('confirm');
     }
   };
@@ -206,8 +250,9 @@ function AddPageInner() {
 
   if (step === 'confirm' || step === 'saving') {
     const isSaving = step === 'saving';
+    const isReceipt = itemType === 'receipt';
     const totalMonths = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
-    const expiryDate = form.purchase_date
+    const expiryDate = !isReceipt && form.purchase_date
       ? (() => {
           const d = new Date(form.purchase_date);
           d.setMonth(d.getMonth() + totalMonths);
@@ -217,16 +262,54 @@ function AddPageInner() {
 
     return (
       <div className={styles.confirm}>
-        <h2 className={styles.confirmTitle}>Confirm details</h2>
-        <p className={styles.confirmSubtitle}>We extracted what we could. Correct anything that looks wrong.</p>
+        <h2 className={styles.confirmTitle}>
+          {isReceipt ? 'Save receipt' : 'Confirm details'}
+        </h2>
+        <p className={styles.confirmSubtitle}>
+          {isReceipt
+            ? 'Review the details below.'
+            : 'We extracted what we could. Correct anything that looks wrong.'}
+        </p>
+
+        {/* ── Type Tabs ─────────────────────────────────────────── */}
+        <div className={styles.typeTabs} role="tablist" aria-label="Item type">
+          <button
+            role="tab"
+            aria-selected={itemType === 'warranty'}
+            className={`${styles.typeTab} ${itemType === 'warranty' ? styles.typeTabActive : ''}`}
+            onClick={() => handleTypeSwitch('warranty')}
+            disabled={isSaving}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Warranty
+          </button>
+          <button
+            role="tab"
+            aria-selected={itemType === 'receipt'}
+            className={`${styles.typeTab} ${itemType === 'receipt' ? styles.typeTabActive : ''}`}
+            onClick={() => handleTypeSwitch('receipt')}
+            disabled={isSaving}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+            </svg>
+            Receipt only
+          </button>
+        </div>
 
         <div className={styles.form}>
           {/* Item name */}
           <div className={styles.field}>
-            <label htmlFor="item_name" className={styles.label}>Item name *</label>
+            <label htmlFor="item_name" className={styles.label}>
+              {isReceipt ? 'Item / purchase name *' : 'Item name *'}
+            </label>
             <input id="item_name" type="text" value={form.item_name}
               onChange={(e) => setForm((f) => ({ ...f, item_name: e.target.value }))}
-              placeholder="e.g. MacBook Pro 14-inch" className={styles.input} required disabled={isSaving} />
+              placeholder={isReceipt ? 'e.g. MacBook Pro' : 'e.g. MacBook Pro 14-inch'}
+              className={styles.input} required disabled={isSaving} />
           </div>
 
           {/* Store name */}
@@ -257,42 +340,92 @@ function AddPageInner() {
               className={styles.input} required disabled={isSaving} />
           </div>
 
-          {/* Warranty length — custom */}
-          <div className={styles.field}>
-            <label className={styles.label}>Warranty length *</label>
-            <div className={styles.warrantyCustom}>
-              <input
-                type="number"
-                min="1"
-                max="120"
-                value={form.warranty_months}
-                onChange={(e) => setForm((f) => ({ ...f, warranty_months: parseInt(e.target.value) || 1 }))}
-                className={`${styles.input} ${styles.warrantyNum}`}
-                disabled={isSaving}
-                aria-label="Warranty duration number"
-              />
-              <div className={styles.unitToggle} role="group" aria-label="Warranty unit">
-                {(['months', 'years'] as const).map((u) => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => setWarrantyUnit(u)}
-                    className={`${styles.unitBtn} ${warrantyUnit === u ? styles.unitBtnActive : ''}`}
+          {/* ── Warranty-specific fields ───────────────────────── */}
+          {!isReceipt && (
+            <>
+              {/* Warranty length */}
+              <div className={styles.field}>
+                <label className={styles.label}>Warranty length *</label>
+                <div className={styles.warrantyCustom}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={form.warranty_months}
+                    onChange={(e) => setForm((f) => ({ ...f, warranty_months: parseInt(e.target.value) || 1 }))}
+                    className={`${styles.input} ${styles.warrantyNum}`}
                     disabled={isSaving}
-                    aria-pressed={warrantyUnit === u}
-                  >
-                    {u}
-                  </button>
-                ))}
+                    aria-label="Warranty duration number"
+                  />
+                  <div className={styles.unitToggle} role="group" aria-label="Warranty unit">
+                    {(['months', 'years'] as const).map((u) => (
+                      <button
+                        key={u}
+                        type="button"
+                        onClick={() => setWarrantyUnit(u)}
+                        className={`${styles.unitBtn} ${warrantyUnit === u ? styles.unitBtnActive : ''}`}
+                        disabled={isSaving}
+                        aria-pressed={warrantyUnit === u}
+                      >
+                        {u}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {expiryDate && (
-            <p className={styles.expiryPreview}>
-              Expires: <strong>{expiryDate}</strong>
-            </p>
+              {expiryDate && (
+                <p className={styles.expiryPreview}>
+                  Expires: <strong>{expiryDate}</strong>
+                </p>
+              )}
+
+              {/* Reminder time */}
+              <div className={styles.field}>
+                <label htmlFor="reminder_time" className={styles.label}>
+                  Reminder time <span className={styles.optional}>(optional)</span>
+                </label>
+                <input id="reminder_time" type="time" value={form.reminder_time}
+                  onChange={(e) => setForm((f) => ({ ...f, reminder_time: e.target.value }))}
+                  className={styles.input} disabled={isSaving} />
+              </div>
+
+              {/* Notification preferences */}
+              <div className={styles.field}>
+                <p className={styles.label}>Remind me before expiry</p>
+                <div className={styles.notifyCard}>
+                  {form.notificationDays.slice().sort((a, b) => b - a).length === 0 && (
+                    <p className={styles.notifyEmpty}>No reminders set. Add one below.</p>
+                  )}
+                  {form.notificationDays.slice().sort((a, b) => b - a).map((days) => (
+                    <div key={days} className={styles.notifyRow}>
+                      <span className={styles.notifyLabel}>
+                        {days === 0 ? 'On expiry day' : `${days} day${days !== 1 ? 's' : ''} before`}
+                      </span>
+                      <button type="button"
+                        onClick={() => setForm((f) => ({ ...f, notificationDays: f.notificationDays.filter((d) => d !== days) }))}
+                        className={styles.notifyRemove} aria-label={`Remove ${days} day notification`} disabled={isSaving}>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                  <div className={styles.notifyAddRow}>
+                    <input type="number" min="0" max="365" placeholder="Days before expiry"
+                      value={newDayInput}
+                      onChange={(e) => setNewDayInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDay(); } }}
+                      className={styles.notifyAddInput} disabled={isSaving} />
+                    <button type="button" onClick={addDay} className={styles.notifyAddBtn}
+                      disabled={isSaving || !newDayInput.trim()}>Add</button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
+
+          {/* ── Shared fields (receipt + warranty) ──────────────── */}
 
           {/* Price paid */}
           <div className={styles.field}>
@@ -322,46 +455,6 @@ function AddPageInner() {
             <input id="serial_number" type="text" value={form.serial_number}
               onChange={(e) => setForm((f) => ({ ...f, serial_number: e.target.value }))}
               placeholder="e.g. SN123456789" className={styles.input} disabled={isSaving} />
-          </div>
-
-          {/* Reminder time */}
-          <div className={styles.field}>
-            <label htmlFor="reminder_time" className={styles.label}>
-              Reminder time <span className={styles.optional}>(optional)</span>
-            </label>
-            <input id="reminder_time" type="time" value={form.reminder_time}
-              onChange={(e) => setForm((f) => ({ ...f, reminder_time: e.target.value }))}
-              className={styles.input} disabled={isSaving} />
-          </div>
-
-          {/* Notification preferences */}
-          <div className={styles.field}>
-            <p className={styles.label}>Remind me before expiry</p>
-            <div className={styles.notifyCard}>
-              {form.notificationDays.slice().sort((a, b) => b - a).map((days) => (
-                <div key={days} className={styles.notifyRow}>
-                  <span className={styles.notifyLabel}>
-                    {days === 0 ? 'On expiry day' : `${days} day${days !== 1 ? 's' : ''} before`}
-                  </span>
-                  <button type="button"
-                    onClick={() => setForm((f) => ({ ...f, notificationDays: f.notificationDays.filter((d) => d !== days) }))}
-                    className={styles.notifyRemove} aria-label={`Remove ${days} day notification`} disabled={isSaving}>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-              <div className={styles.notifyAddRow}>
-                <input type="number" min="0" max="365" placeholder="Days before expiry"
-                  value={newDayInput}
-                  onChange={(e) => setNewDayInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDay(); } }}
-                  className={styles.notifyAddInput} disabled={isSaving} />
-                <button type="button" onClick={addDay} className={styles.notifyAddBtn}
-                  disabled={isSaving || !newDayInput.trim()}>Add</button>
-              </div>
-            </div>
           </div>
 
           {/* Notes */}
@@ -394,7 +487,7 @@ function AddPageInner() {
             Cancel
           </button>
           <button className={styles.btnPrimary} onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving…' : 'Save warranty'}
+            {isSaving ? 'Saving…' : isReceipt ? 'Save receipt' : 'Save warranty'}
           </button>
         </div>
       </div>

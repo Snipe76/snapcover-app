@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { ExpiryBadge } from './ExpiryBadge';
 import { Dialog } from '@/components/ui/Dialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Warranty } from '@/lib/db/types';
+import type { Warranty, ItemType } from '@/lib/db/types';
 import styles from './WarrantyCard.module.css';
 
 interface Props {
@@ -16,7 +16,16 @@ interface Props {
 export function WarrantyCard({ warranty, onDelete }: Props) {
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const supabase = createClient();
+
+  useEffect(() => { setMounted(true); }, []);
+
+  const isReceipt = (warranty.type ?? 'warranty') === 'receipt';
+
+  // Use computed status from WarrantyList (passed via _computedStatus) or fallback to DB status
+  const effectiveStatus = (warranty as Warranty & { _computedStatus?: string })._computedStatus
+    ?? (warranty.status ?? 'active');
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -26,20 +35,38 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
     setDeleting(false);
   };
 
+  // Format purchase date
+  const purchaseDate = warranty.purchase_date
+    ? new Date(warranty.purchase_date + 'T00:00:00').toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      })
+    : null;
+
+  // Format price
+  const priceDisplay = warranty.price_paid != null
+    ? `$${Number(warranty.price_paid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
+
+  // Receipt has no expiry_date, show "No expiry" or store receipt indicator
+  const hasExpiry = !!warranty.expiry_date && warranty.expiry_date.trim() !== '';
+
   return (
     <>
       <Link
         href={`/app/warranty/${warranty.id}`}
-        className={`${styles.card} ${styles[`status_${warranty.status}`]}`}
-        aria-label={`${warranty.item_name} warranty, ${warranty.status}`}
+        className={`${styles.card} ${!isReceipt ? styles[`status_${effectiveStatus}`] : ''}`}
+        aria-label={`${warranty.item_name}${isReceipt ? ' receipt' : ' warranty'}`}
       >
-        <div className={styles.content}>
-          <h3 className={styles.itemName}>{warranty.item_name}</h3>
-          <p className={styles.storeName}>{warranty.store_name}</p>
-        </div>
-
-        <div className={styles.meta}>
-          <ExpiryBadge expiryDate={warranty.expiry_date} status={warranty.status} />
+        {/* Top row: type badge + category + delete */}
+        <div className={styles.topRow}>
+          <div className={styles.badges}>
+            <span className={`${styles.typeBadge} ${isReceipt ? styles.typeReceipt : styles.typeWarranty}`}>
+              {isReceipt ? 'Receipt' : 'Warranty'}
+            </span>
+            {warranty.category && warranty.category !== 'Other' && (
+              <span className={styles.categoryBadge}>{warranty.category}</span>
+            )}
+          </div>
           <button
             className={styles.deleteBtn}
             onClick={(e) => {
@@ -54,12 +81,44 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
             </svg>
           </button>
         </div>
+
+        {/* Item name */}
+        <h3 className={styles.itemName}>{warranty.item_name}</h3>
+
+        {/* Store name */}
+        {warranty.store_name && (
+          <p className={styles.storeName}>{warranty.store_name}</p>
+        )}
+
+        {/* Meta row: price + date */}
+        <div className={styles.metaRow}>
+          {priceDisplay && (
+            <span className={styles.metaItem}>{priceDisplay}</span>
+          )}
+          {priceDisplay && purchaseDate && (
+            <span className={styles.metaDot}>·</span>
+          )}
+          {purchaseDate && (
+            <span className={styles.metaItem}>
+              {isReceipt ? `Purchased ${purchaseDate}` : purchaseDate}
+            </span>
+          )}
+        </div>
+
+        {/* Bottom row: status/times-left */}
+        <div className={styles.bottomRow}>
+          {!isReceipt && hasExpiry ? (
+            <ExpiryBadge expiryDate={warranty.expiry_date} status={warranty.status} />
+          ) : isReceipt ? (
+            <span className={styles.noExpiry}>Receipt on file</span>
+          ) : null}
+        </div>
       </Link>
 
       <Dialog
         isOpen={showDelete}
         onClose={() => setShowDelete(false)}
-        title="Delete warranty?"
+        title={`Delete ${isReceipt ? 'receipt' : 'warranty'}?`}
         actions={[
           { label: 'Cancel', onClick: () => setShowDelete(false), variant: 'secondary' },
           { label: 'Delete', onClick: handleDelete, variant: 'destructive', loading: deleting },
@@ -73,5 +132,3 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
     </>
   );
 }
-
-

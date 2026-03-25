@@ -32,7 +32,11 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
     });
   }, [pushSupported]);
 
+  // ─── Push notifications ───────────────────────────────────────────────────
+  const [pushError, setPushError] = useState<string | null>(null);
+
   const handlePushToggle = async () => {
+    setPushError(null);
     setPushLoading(true);
     try {
       if (pushEnabled) {
@@ -42,26 +46,61 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
         }
         setPushEnabled(false);
       } else {
+        // Step 1: request permission
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
+          setPushError('Notification permission denied. Please enable notifications in your browser settings.');
           setPushLoading(false);
           return;
         }
-        await navigator.serviceWorker.register('/sw.js');
-        const sub = await subscribeToPush();
-        if (sub) {
-          const res = await fetch('/api/notifications/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ subscription: sub.toJSON() }),
-          });
-          if (res.ok) {
-            setPushEnabled(true);
-          }
+
+        // Step 2: register service worker (required before pushManager.subscribe)
+        let registration: ServiceWorkerRegistration | undefined;
+        try {
+          registration = await navigator.serviceWorker.register('/sw.js');
+        } catch (swErr) {
+          console.error('[push] service worker registration failed:', swErr);
+          setPushError('Service worker registration failed. Try refreshing the page.');
+          setPushLoading(false);
+          return;
         }
+
+        // Step 3: subscribe to push
+        let sub;
+        try {
+          sub = await subscribeToPush();
+        } catch (subErr) {
+          console.error('[push] subscribe failed:', subErr);
+          setPushError('Push subscription failed. Your browser may not support Web Push.');
+          setPushLoading(false);
+          return;
+        }
+
+        if (!sub) {
+          setPushError('No subscription returned. Try refreshing and trying again.');
+          setPushLoading(false);
+          return;
+        }
+
+        // Step 4: send subscription to server
+        const res = await fetch('/api/notifications/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: sub.toJSON() }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setPushError(`Server error: ${data.error ?? res.status}`);
+          setPushLoading(false);
+          return;
+        }
+
+        setPushEnabled(true);
       }
     } catch (err) {
       console.error('[push] toggle error:', err);
+      setPushError('Something went wrong. Please try again.');
     } finally {
       setPushLoading(false);
     }
@@ -159,6 +198,11 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
               ? 'You&apos;ll receive reminders 30, 7, and 1 day before a warranty expires.'
               : 'Enable to receive browser push notifications. Email reminders are always sent.'}
           </div>
+          {pushError && (
+            <div role="alert" className={styles.hint} style={{ color: 'var(--danger)', marginTop: 'var(--space-2)' }}>
+              {pushError}
+            </div>
+          )}
         </div>
       </section>
 
@@ -182,6 +226,15 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
         </div>
       </section>
 
+      {/* Sign Out — above danger zone */}
+      <button
+        className={styles.logoutBtn}
+        onClick={handleLogout}
+        disabled={loggingOut}
+      >
+        {loggingOut ? 'Signing out…' : 'Sign out'}
+      </button>
+
       {/* Danger Zone */}
       <section className={styles.section} aria-labelledby="danger-heading">
         <h3 id="danger-heading" className={styles.sectionTitle}>Danger zone</h3>
@@ -200,15 +253,6 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
           Permanently deletes all your warranties and data. This cannot be undone.
         </p>
       </section>
-
-      {/* Logout */}
-      <button
-        className={styles.logoutBtn}
-        onClick={handleLogout}
-        disabled={loggingOut}
-      >
-        {loggingOut ? 'Signing out…' : 'Sign out'}
-      </button>
 
       {/* Delete Confirmation */}
       {showDeleteConfirm && (
