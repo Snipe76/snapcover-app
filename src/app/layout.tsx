@@ -15,11 +15,16 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: '/icon.svg' },
       { url: '/favicon.ico' },
-      { url: '/icon-192.png', rel: 'icon', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512.png', rel: 'icon', sizes: '512x512', type: 'image/png' },
     ],
-    apple: '/apple-touch-icon.png',
+    apple: '/icon.svg',
+  },
+  openGraph: {
+    title: 'SnapCover',
+    description: 'Photograph your receipts, track your warranties, get reminded before they expire.',
+    url: 'https://snapcover-app.vercel.app',
+    siteName: 'SnapCover',
   },
 };
 
