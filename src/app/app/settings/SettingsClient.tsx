@@ -18,9 +18,11 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
   // Push notification state
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
-  const [pushSupported] = useState(
-    typeof window !== 'undefined' && 'Notification' in window,
-  );
+  const [pushSupported, setPushSupported] = useState(false);
+
+  useEffect(() => {
+    setPushSupported(typeof window !== 'undefined' && 'Notification' in window);
+  }, []);
 
   // Check existing subscription on mount
   useEffect(() => {

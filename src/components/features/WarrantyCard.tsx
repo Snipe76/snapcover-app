@@ -31,7 +31,7 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
       <Link
         href={`/app/warranty/${warranty.id}`}
         className={`${styles.card} ${styles[`status_${warranty.status}`]}`}
-        aria-label={`${warranty.item_name} from ${warranty.store_name}, ${getDaysText(warranty.expiry_date)}`}
+        aria-label={`${warranty.item_name} warranty, ${warranty.status}`}
       >
         <div className={styles.content}>
           <h3 className={styles.itemName}>{warranty.item_name}</h3>
@@ -74,16 +74,4 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
   );
 }
 
-function getDaysText(expiryDate: string): string {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const expiry = new Date(expiryDate);
-  expiry.setHours(0, 0, 0, 0);
-  const diff = Math.round((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (diff === 0)  return 'Expires today';
-  if (diff === 1)  return 'Expires tomorrow';
-  if (diff === -1) return 'Expired yesterday';
-  if (diff > 0)    return `Expires in ${diff} days`;
-  return `Expired ${Math.abs(diff)} days ago`;
-}

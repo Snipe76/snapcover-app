@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import styles from './ExpiryBadge.module.css';
 import type { WarrantyStatus } from '@/lib/db/types';
 
@@ -7,7 +10,12 @@ interface Props {
 }
 
 export function ExpiryBadge({ expiryDate, status }: Props) {
-  const { text, variant } = getBadgeContent(expiryDate, status);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const { text, variant } = mounted
+    ? getBadgeContent(expiryDate, status)
+    : { text: status === 'expired' ? 'Expired' : status === 'expiring' ? 'Expiring' : 'Active', variant: status };
 
   return (
     <span
@@ -19,7 +27,7 @@ export function ExpiryBadge({ expiryDate, status }: Props) {
   );
 }
 
-function getBadgeContent(expiryDate: string, _status: WarrantyStatus): {
+function getBadgeContent(expiryDate: string, status: WarrantyStatus): {
   text: string;
   variant: 'urgent' | 'expiring' | 'active' | 'expired';
 } {
