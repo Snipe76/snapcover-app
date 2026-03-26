@@ -217,6 +217,31 @@
 .resendBtn:hover { opacity: 0.8; }
 .resendBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ─── Checkbox ─────────────────────────────────────────────────────────────── */
+.checkboxLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1.5;
+}
+
+.checkboxLabel a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 /* ─── Legal ────────────────────────────────────────────────────────────────── */
 .legal {
   margin-top: var(--space-6);

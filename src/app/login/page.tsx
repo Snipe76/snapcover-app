@@ -11,6 +11,8 @@ function LoginPageContent() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [mode, setMode] = useState<'signin' | 'signup'>(isSignupMode ? 'signup' : 'signin');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -21,6 +23,21 @@ function LoginPageContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) return;
+
+    if (mode === 'signup') {
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+      if (!agreeToTerms) {
+        setError('You must agree to the Terms of Service and Privacy Policy.');
+        return;
+      }
+    }
 
     setLoading(true);
     setError(null);
@@ -73,6 +90,14 @@ function LoginPageContent() {
     }
   };
 
+  const handleModeSwitch = (newMode: 'signin' | 'signup') => {
+    setMode(newMode);
+    setError(null);
+    setSuccess(null);
+    setConfirmPassword('');
+    setAgreeToTerms(false);
+  };
+
   return (
     <main className={styles.container}>
       <div className={styles.hero}>
@@ -105,7 +130,7 @@ function LoginPageContent() {
             role="tab"
             aria-selected={mode === 'signin'}
             className={`${styles.tab} ${mode === 'signin' ? styles.tabActive : ''}`}
-            onClick={() => { setMode('signin'); setError(null); setSuccess(null); }}
+            onClick={() => handleModeSwitch('signin')}
           >
             Sign in
           </button>
@@ -113,7 +138,7 @@ function LoginPageContent() {
             role="tab"
             aria-selected={mode === 'signup'}
             className={`${styles.tab} ${mode === 'signup' ? styles.tabActive : ''}`}
-            onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
+            onClick={() => handleModeSwitch('signup')}
           >
             Create account
           </button>
@@ -147,14 +172,52 @@ function LoginPageContent() {
               name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === 'signup' ? 'At least 6 characters' : ''}
+              placeholder={mode === 'signup' ? 'At least 8 characters' : ''}
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               required
               aria-required="true"
-              minLength={6}
+              minLength={8}
               className={styles.input}
             />
           </div>
+
+          {mode === 'signup' && (
+            <>
+              <div className={styles.field}>
+                <label htmlFor="confirmPassword" className={styles.label}>Confirm password</label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  name="confirmPassword"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repeat your password"
+                  autoComplete="new-password"
+                  required
+                  aria-required="true"
+                  minLength={8}
+                  className={styles.input}
+                />
+              </div>
+
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={agreeToTerms}
+                  onChange={(e) => setAgreeToTerms(e.target.checked)}
+                  className={styles.checkbox}
+                  required
+                  aria-required="true"
+                />
+                <span>
+                  I agree to the{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+                  {' '}and{' '}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+                </span>
+              </label>
+            </>
+          )}
 
           {error && (
             <div role="alert" className={styles.error}>
@@ -164,7 +227,12 @@ function LoginPageContent() {
 
           <button
             type="submit"
-            disabled={loading || !email.trim() || !password.trim()}
+            disabled={
+              loading ||
+              !email.trim() ||
+              !password.trim() ||
+              (mode === 'signup' && (!confirmPassword.trim() || !agreeToTerms))
+            }
             className={styles.button}
           >
             {loading
@@ -174,11 +242,13 @@ function LoginPageContent() {
         </form>
       </div>
 
-      <p className={styles.legal}>
-        By continuing, you agree to our{' '}
-        <a href="/terms">Terms of Service</a> and{' '}
-        <a href="/privacy">Privacy Policy</a>.
-      </p>
+      {mode === 'signin' && (
+        <p className={styles.legal}>
+          By continuing, you agree to our{' '}
+          <a href="/terms">Terms of Service</a> and{' '}
+          <a href="/privacy">Privacy Policy</a>.
+        </p>
+      )}
     </main>
   );
 }
