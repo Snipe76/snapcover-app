@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import webpush from 'web-push';
-
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? '';
-const VAPID_EMAIL = process.env.VAPID_EMAIL ?? 'mailto:admin@snapcover.app';
-
-webpush.setVapidDetails(VAPID_EMAIL, process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '', VAPID_PRIVATE_KEY);
 
 export async function POST(req: NextRequest) {
   try {
+    // Dynamic import keeps web-push out of the Edge bundle
+    const webpush = (await import('web-push')).default;
+
+    const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? '';
+    const VAPID_EMAIL = process.env.VAPID_EMAIL ?? 'mailto:admin@snapcover.app';
+    const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
+
+    if (!VAPID_PRIVATE_KEY || !VAPID_PUBLIC_KEY) {
+      return NextResponse.json({ error: 'Push not configured' }, { status: 500 });
+    }
+
+    webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
     const { subscription } = await req.json();
 
     if (!subscription) {
@@ -32,3 +39,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
