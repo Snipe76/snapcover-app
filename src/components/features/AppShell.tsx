@@ -138,7 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setMenuOpen((v) => !v)}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
-            aria-label="Add warranty"
+            aria-label="Add item"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <line x1="12" y1="5" x2="12" y2="19" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
@@ -147,7 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
 
           {menuOpen && (
-            <div className={styles.addMenu} role="menu" aria-label="Add warranty options">
+            <div className={styles.addMenu} role="menu" aria-label="Add item options">
               <button
                 className={styles.addMenuItem}
                 onClick={() => handleAction('camera')}
@@ -212,8 +212,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function getTitle(pathname: string): string {
-  if (pathname.startsWith('/app/warranty/')) return 'Warranty';
-  if (pathname === '/app/add') return 'Add Warranty';
+  if (pathname.startsWith('/app/warranty/')) return 'Details';
+  if (pathname === '/app/add') return 'Add item';
   if (pathname === '/app/notifications') return 'Notifications';
   if (pathname === '/app/settings') return 'Settings';
   if (pathname === '/app') return 'SnapCover';
