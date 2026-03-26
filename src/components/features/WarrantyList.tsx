@@ -5,6 +5,7 @@ import { WarrantyCard } from './WarrantyCard';
 import { useFabMenu } from '@/contexts/FabMenuContext';
 import type { Warranty } from '@/lib/db/types';
 import styles from './WarrantyList.module.css';
+import filterStyles from './FilterSheet.module.css';
 
 interface Props {
   initialWarranties: Warranty[];
@@ -12,16 +13,15 @@ interface Props {
 }
 
 type FilterTab = 'all' | 'active' | 'expiring' | 'expired';
-type SortOption = 'expiry_asc' | 'expiry_desc' | 'name_asc' | 'purchase_desc' | 'purchase_asc' | 'days_left';
+type SortOption = 'expiry_asc' | 'name_asc' | 'purchase_desc' | 'days_left';
 type TypeFilter = 'all' | 'warranty' | 'receipt';
 
+// Keep only distinct sort options — no near-duplicates
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'expiry_asc',  label: 'Expiring soonest' },
-  { value: 'expiry_desc', label: 'Expiring latest'  },
-  { value: 'name_asc',    label: 'Name (A–Z)'        },
-  { value: 'purchase_desc', label: 'Purchased newest' },
-  { value: 'purchase_asc',  label: 'Purchased oldest' },
-  { value: 'days_left',    label: 'Days remaining'    },
+  { value: 'expiry_asc',    label: 'Expiry (soonest first)' },
+  { value: 'days_left',     label: 'Days remaining'         },
+  { value: 'name_asc',      label: 'Name (A–Z)'             },
+  { value: 'purchase_desc',  label: 'Purchase date (newest)' },
 ];
 
 const ALL_CATEGORIES = ['Electronics', 'Appliances', 'Tools', 'Vehicles', 'Clothing', 'Home', 'Other'];
@@ -34,7 +34,6 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
   const [filterOpen, setFilterOpen]     = useState(false);
   const [sortOpen, setSortOpen]         = useState(false);
   const [sortBy, setSortBy]             = useState<SortOption>('expiry_asc');
-  const filterRef = useRef<HTMLDivElement>(null);
   const sortRef   = useRef<HTMLDivElement>(null);
   const { openFabMenu } = useFabMenu();
   const [mounted, setMounted] = useState(false);
@@ -42,9 +41,6 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
-        setFilterOpen(false);
-      }
       if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
         setSortOpen(false);
       }
@@ -111,22 +107,24 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       switch (sortBy) {
-        case 'name_asc':       return a.item_name.localeCompare(b.item_name);
-        case 'purchase_desc':  return b.purchase_date.localeCompare(a.purchase_date);
-        case 'purchase_asc':   return a.purchase_date.localeCompare(b.purchase_date);
+        case 'name_asc':
+          return a.item_name.localeCompare(b.item_name);
+        case 'purchase_desc':
+          return (b.purchase_date || '').localeCompare(a.purchase_date || '');
         case 'days_left': {
           const aDays = a._daysLeft ?? 99999;
           const bDays = b._daysLeft ?? 99999;
           return aDays - bDays;
         }
-        case 'expiry_desc':
-          return (b.expiry_date || '').localeCompare(a.expiry_date || '');
         case 'expiry_asc':
-        default:
+        default: {
           // Put receipts at end when sorting by expiry
-          if ((a.type ?? 'warranty') === 'receipt') return 1;
-          if ((b.type ?? 'warranty') === 'receipt') return -1;
+          const aIsR = (a.type ?? 'warranty') === 'receipt';
+          const bIsR = (b.type ?? 'warranty') === 'receipt';
+          if (aIsR && !bIsR) return 1;
+          if (!aIsR && bIsR) return -1;
           return (a.expiry_date || '').localeCompare(b.expiry_date || '');
+        }
       }
     });
   }, [filtered, sortBy]);
@@ -151,11 +149,11 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
             </svg>
             <input
               type="search"
-              placeholder="Search warranties & receipts…"
+              placeholder="Search items…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={styles.searchInput}
-              aria-label="Search warranties and receipts"
+              aria-label="Search items"
             />
             {searchQuery && (
               <button
@@ -179,11 +177,12 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
               onClick={() => setSortOpen((o) => !o)}
               aria-expanded={sortOpen}
               aria-haspopup="menu"
+              aria-label="Sort"
+              title={currentSortLabel}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M3 6h18M6 12h12M9 18h6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
               </svg>
-              {currentSortLabel}
             </button>
             {sortOpen && (
               <div className={styles.sortMenu} role="menu">
@@ -208,27 +207,57 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
             )}
           </div>
 
-          {/* Filter dropdown */}
-          <div className={styles.filterWrapper} ref={filterRef}>
-            <button
-              type="button"
-              className={`${styles.filterBtn} ${filterActive ? styles.filterBtnActive : ''}`}
-              onClick={() => setFilterOpen((o) => !o)}
-              aria-expanded={filterOpen}
-              aria-haspopup="menu"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-              </svg>
-              Filter
-              {filterActive && <span className={styles.filterBadge} />}
-            </button>
+          {/* Filter button */}
+          <button
+            type="button"
+            className={`${styles.filterBtn} ${filterActive ? styles.filterBtnActive : ''}`}
+            onClick={() => setFilterOpen(true)}
+            aria-expanded={filterOpen}
+            aria-haspopup="dialog"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+            </svg>
+            {filterActive
+              ? `${(typeFilter !== 'all' ? 1 : 0) + (activeFilter !== 'all' ? 1 : 0) + (!!activeCategory ? 1 : 0)}`
+              : 'Filter'}
+          </button>
+        </div>
+      )}
 
-            {filterOpen && (
-              <div className={styles.filterMenu} role="menu">
-                {/* Type section */}
-                <div className={styles.filterSection}>
-                  <p className={styles.filterSectionTitle}>Type</p>
+      {/* ── Filter Bottom Sheet ─────────────────────────────────────── */}
+      {filterOpen && (
+        <>
+          <div
+            className={filterStyles.backdrop}
+            onClick={() => setFilterOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            className={filterStyles.sheet}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filter items"
+          >
+            <div className={filterStyles.handle} aria-hidden="true" />
+            <div className={filterStyles.header}>
+              <h2 className={filterStyles.title}>Filter</h2>
+              {filterActive && (
+                <button
+                  type="button"
+                  className={filterStyles.clearAll}
+                  onClick={() => { setActiveFilter('all'); setActiveCategory(null); setTypeFilter('all'); }}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            <div className={filterStyles.content}>
+              {/* Type */}
+              <div className={filterStyles.section}>
+                <p className={filterStyles.sectionTitle}>Type</p>
+                <div className={filterStyles.chips}>
                   {(['all', 'warranty', 'receipt'] as TypeFilter[]).map((t) => {
                     const label = t === 'all' ? 'All' : t === 'warranty' ? 'Warranties' : 'Receipts';
                     const count = t === 'all'
@@ -240,23 +269,21 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
                       <button
                         key={t}
                         type="button"
-                        className={`${styles.filterOption} ${typeFilter === t && !activeCategory && activeFilter === 'all' ? styles.filterOptionActive : ''}`}
-                        onClick={() => { setTypeFilter(t); setActiveFilter('all'); setActiveCategory(null); }}
-                        role="menuitemcheckbox"
-                        aria-checked={typeFilter === t && !activeCategory && activeFilter === 'all'}
+                        className={`${filterStyles.chip} ${typeFilter === t ? filterStyles.chipActive : ''}`}
+                        onClick={() => setTypeFilter(t)}
                       >
-                        <span className={styles.filterOptionLabel}>{label}</span>
-                        <span className={styles.filterOptionCount}>{count}</span>
+                        {label}
+                        <span className={filterStyles.chipCount}>{count}</span>
                       </button>
                     );
                   })}
                 </div>
+              </div>
 
-                <div className={styles.filterDivider} />
-
-                {/* Status section */}
-                <div className={styles.filterSection}>
-                  <p className={styles.filterSectionTitle}>Status</p>
+              {/* Status */}
+              <div className={filterStyles.section}>
+                <p className={filterStyles.sectionTitle}>Status</p>
+                <div className={filterStyles.chips}>
                   {(['all', 'active', 'expiring', 'expired'] as FilterTab[]).map((tab) => {
                     const label = tab.charAt(0).toUpperCase() + tab.slice(1);
                     const count = tab === 'all'
@@ -266,32 +293,28 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
                       <button
                         key={tab}
                         type="button"
-                        className={`${styles.filterOption} ${activeFilter === tab && !activeCategory && typeFilter === 'all' ? styles.filterOptionActive : ''}`}
-                        onClick={() => { setActiveFilter(tab); setActiveCategory(null); setTypeFilter('all'); }}
-                        role="menuitemcheckbox"
-                        aria-checked={activeFilter === tab && !activeCategory && typeFilter === 'all'}
+                        className={`${filterStyles.chip} ${activeFilter === tab ? filterStyles.chipActive : ''}`}
+                        onClick={() => setActiveFilter(tab)}
                       >
-                        <span className={styles.filterOptionLabel}>{label}</span>
-                        <span className={styles.filterOptionCount}>{count}</span>
+                        {label}
+                        <span className={filterStyles.chipCount}>{count}</span>
                       </button>
                     );
                   })}
                 </div>
+              </div>
 
-                <div className={styles.filterDivider} />
-
-                {/* Category section */}
-                <div className={styles.filterSection}>
-                  <p className={styles.filterSectionTitle}>Category</p>
+              {/* Category */}
+              <div className={filterStyles.section}>
+                <p className={filterStyles.sectionTitle}>Category</p>
+                <div className={filterStyles.chips}>
                   <button
                     type="button"
-                    className={`${styles.filterOption} ${!activeCategory && typeFilter === 'all' && activeFilter === 'all' ? styles.filterOptionActive : ''}`}
-                    onClick={() => { setActiveCategory(null); setTypeFilter('all'); setActiveFilter('all'); }}
-                    role="menuitemcheckbox"
-                    aria-checked={!activeCategory && typeFilter === 'all' && activeFilter === 'all'}
+                    className={`${filterStyles.chip} ${!activeCategory ? filterStyles.chipActive : ''}`}
+                    onClick={() => setActiveCategory(null)}
                   >
-                    <span className={styles.filterOptionLabel}>All</span>
-                    <span className={styles.filterOptionCount}>{initialWarranties.length}</span>
+                    All
+                    <span className={filterStyles.chipCount}>{initialWarranties.length}</span>
                   </button>
                   {ALL_CATEGORIES.map((cat) => {
                     const count = initialWarranties.filter((w) => w.category === cat).length;
@@ -299,36 +322,30 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
                       <button
                         key={cat}
                         type="button"
-                        className={`${styles.filterOption} ${activeCategory === cat ? styles.filterOptionActive : ''}`}
-                        onClick={() => { setActiveCategory(cat); setTypeFilter('all'); setActiveFilter('all'); }}
-                        role="menuitemcheckbox"
-                        aria-checked={activeCategory === cat}
+                        className={`${filterStyles.chip} ${activeCategory === cat ? filterStyles.chipActive : ''}`}
+                        onClick={() => setActiveCategory(cat)}
                       >
-                        <span className={styles.filterOptionLabel}>{cat}</span>
-                        <span className={styles.filterOptionCount}>{count}</span>
+                        {cat}
+                        <span className={filterStyles.chipCount}>{count}</span>
                       </button>
                     );
                   })}
                 </div>
-
-                {filterActive && (
-                  <>
-                    <div className={styles.filterDivider} />
-                    <button
-                      type="button"
-                      className={styles.filterClear}
-                      onClick={() => { setActiveFilter('all'); setActiveCategory(null); setTypeFilter('all'); setFilterOpen(false); }}
-                    >
-                      Clear all filters
-                    </button>
-                  </>
-                )}
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
 
+            <div className={filterStyles.footer}>
+              <button
+                type="button"
+                className={filterStyles.doneBtn}
+                onClick={() => setFilterOpen(false)}
+              >
+                Done ({activeCount})
+              </button>
+            </div>
+          </div>
+        </>
+      )}
       {/* ── Active filter chips ─────────────────────────────────────── */}
       {filterActive && (
         <div className={styles.activeFilters}>
@@ -378,19 +395,19 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
       {/* ── Empty state ───────────────────────────────────────────── */}
       {sorted.length === 0 && !hasItems ? (
         <div className={styles.empty}>
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-            <rect width="48" height="48" rx="12" fill="color-mix(in srgb, var(--accent) 12%, transparent)" />
-            <path d="M16 20h16M16 24h8M16 28h12" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
-            <circle cx="36" cy="34" r="6" fill="var(--accent-secondary)" />
-            <path d="M33.5 34l1.5 1.5 3-3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+            <rect width="52" height="52" rx="14" fill="color-mix(in srgb, var(--accent-secondary, #34c759) 12%, transparent)" />
+            <rect x="14" y="12" width="24" height="28" rx="3" stroke="var(--accent-secondary, #34c759)" strokeWidth="1.75" />
+            <path d="M19 19h14M19 24h8M19 29h11" stroke="var(--accent-secondary, #34c759)" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="37" cy="37" r="8" fill="var(--accent)" />
+            <path d="M34.5 37l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <p className={styles.emptyTitle}>Nothing here yet</p>
+          <p className={styles.emptyTitle}>No receipts yet</p>
           <p className={styles.emptyText}>
-            SnapCover stores both <strong>warranties</strong> and <strong>receipts</strong>.&nbsp;
-            Tap <strong>+</strong> to add your first item.
+            Save your receipts to track purchases, prices, and warranty information — all in one place.
           </p>
           <button className={styles.emptyCta} onClick={openFabMenu}>
-            Add your first item
+            Add your first receipt
           </button>
         </div>
       ) : (

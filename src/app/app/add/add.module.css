@@ -66,48 +66,80 @@
   margin-bottom: var(--space-5);
 }
 
-/* ─── Type Tabs ───────────────────────────────────────────────────────────── */
-.typeTabs {
+/* ─── Wizard ──────────────────────────────────────────────────────────────── */
+.wizardHeader {
   display: flex;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 3px;
-  gap: 3px;
-  margin-bottom: var(--space-6);
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
 }
 
-.typeTab {
-  flex: 1;
+.wizardTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.wizardSteps {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
+  gap: var(--space-2);
+}
+
+.wizardDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background var(--duration-micro) var(--ease-out);
+}
+
+.wizardDotActive {
+  background: var(--accent);
+}
+
+.wizardLine {
+  width: 32px;
+  height: 2px;
+  background: var(--border);
+}
+
+/* ─── Receipt preview thumbnail ─────────────────────────────────────────── */
+.receiptPreview {
+  margin-bottom: var(--space-4);
+}
+
+.receiptThumb {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+/* ─── Warranty toggle (yes/no) ─────────────────────────────────────────── */
+.warrantyToggleBtn {
+  flex: 1;
   height: 40px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
-  background: none;
-  border: none;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
   cursor: pointer;
   transition:
     background  var(--duration-micro) var(--ease-out),
-    color       var(--duration-micro) var(--ease-out);
+    color       var(--duration-micro) var(--ease-out),
+    border-color var(--duration-micro) var(--ease-out);
 }
 
-.typeTab:hover:not(:disabled) {
-  color: var(--text-primary);
-}
+.warrantyToggleBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.typeTab:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.typeTabActive {
+.warrantyToggleBtnActive {
   background: var(--accent);
-  color: white;
-}
-
-.typeTabActive:hover:not(:disabled) {
+  border-color: var(--accent);
   color: white;
 }
 
@@ -116,11 +148,13 @@
   display: flex;
   gap: var(--space-2);
   align-items: stretch;
+  flex-wrap: wrap;
 }
 
 .warrantyNum {
-  width: 90px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 72px;
+  max-width: 96px;
   text-align: center;
 }
 
@@ -138,7 +172,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 14px;
+  padding: 0 10px;
   border-radius: 5px;
   font-size: 14px;
   font-weight: 600;

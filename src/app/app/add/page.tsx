@@ -3,26 +3,11 @@
 import { useState, useEffect, Suspense } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { extractReceiptData } from '@/lib/ocr';
-import { z } from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { ItemType } from '@/lib/db/types';
 import styles from './add.module.css';
 
-const WarrantySchema = z.object({
-  item_name:       z.string().min(1, 'Item name is required'),
-  store_name:      z.string().min(1, 'Store name is required'),
-  purchase_date:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
-  warranty_months: z.number().min(1).max(120),
-  notes:           z.string().optional(),
-  price_paid:      z.string().optional(),
-  order_number:    z.string().optional(),
-  serial_number:   z.string().optional(),
-  category:        z.string(),
-  reminder_time:   z.string(),
-  notificationDays: z.array(z.number()),
-});
-
-type Step = 'idle' | 'processing' | 'confirm' | 'saving';
+type Step = 'idle' | 'processing' | 'saving';
+type WizardStep = 1 | 2;
 
 const CATEGORIES = [
   { value: 'Electronics', label: 'Electronics' },
@@ -45,7 +30,7 @@ const DEFAULT_FORM = {
   serial_number:   '',
   category:        'Other',
   reminder_time:   '09:00',
-  notificationDays: [30, 7, 1, 0] as number[],
+  notificationDays: [30, 7, 1] as number[],
 };
 
 function AddPageInner() {
@@ -54,17 +39,21 @@ function AddPageInner() {
   const source = searchParams.get('source');
 
   const [step, setStep]         = useState<Step>('idle');
-  const [itemType, setItemType] = useState<ItemType>('warranty');
+  const [wizardStep, setWizardStep] = useState<WizardStep>(1);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [error, setError]       = useState<string | null>(null);
   const [warrantyUnit, setWarrantyUnit] = useState<'months' | 'years'>('months');
+  const [hasWarranty, setHasWarranty] = useState(true);
   const [form, setForm]         = useState(DEFAULT_FORM);
   const [newDayInput, setNewDayInput] = useState('');
   const supabase = createClient();
 
   useEffect(() => {
     if (source === 'manual') {
-      setStep('confirm');
+      setStep('processing');
+      setWizardStep(1);
+      // Short delay to show processing state
+      setTimeout(() => setStep('idle'), 300);
       return;
     }
     if (source === 'camera' || source === 'library') {
@@ -73,7 +62,7 @@ function AddPageInner() {
         sessionStorage.removeItem('pending_warranty_image');
         processImage(stored);
       } else {
-        setStep('confirm');
+        setStep('idle');
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,60 +80,32 @@ function AddPageInner() {
         store_name:    result.store_name,
         purchase_date: result.purchase_date,
       });
-      setStep('confirm');
+      setWizardStep(1);
+      setStep('idle');
     } catch {
       setForm({ ...DEFAULT_FORM, item_name: '', store_name: '', purchase_date: '' });
-      setStep('confirm');
+      setWizardStep(1);
+      setStep('idle');
     }
-  };
-
-  const handleTypeSwitch = (type: ItemType) => {
-    setItemType(type);
-    // Reset form fields that are type-specific
-    if (type === 'receipt') {
-      setForm((f) => ({
-        ...f,
-        warranty_months: 12,
-        warrantyUnit: 'months' as const,
-        notificationDays: [],
-        reminder_time: '09:00',
-      }));
-    }
-  };
-
-  const addDay = () => {
-    const raw = newDayInput.trim();
-    if (!raw) return;
-    const n = parseInt(raw, 10);
-    if (isNaN(n) || n < 0 || n > 365) return;
-    if (form.notificationDays.includes(n)) { setNewDayInput(''); return; }
-    setForm((f) => ({
-      ...f,
-      notificationDays: [...f.notificationDays, n].sort((a, b) => b - a),
-    }));
-    setNewDayInput('');
   };
 
   const handleSave = async () => {
-    setStep('saving');
-
-    const isReceipt = itemType === 'receipt';
-
-    // Validate warranty-specific fields
-    if (!isReceipt) {
-      const months = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
-      const parsed = WarrantySchema.safeParse({ ...form, warranty_months: months });
-      if (!parsed.success) {
-        setError(parsed.error.issues[0].message);
-        setStep('confirm');
-        return;
-      }
-    } else {
-      // Receipt: just require item name, store, purchase date
-      if (!form.item_name.trim()) { setError('Item name is required'); setStep('confirm'); return; }
-      if (!form.store_name.trim()) { setError('Store is required'); setStep('confirm'); return; }
-      if (!form.purchase_date) { setError('Purchase date is required'); setStep('confirm'); return; }
+    // Validate step 1 fields
+    if (wizardStep === 1) {
+      if (!form.item_name.trim()) { setError('Item name is required'); return; }
+      if (!form.store_name.trim()) { setError('Store is required'); return; }
+      if (!form.purchase_date) { setError('Purchase date is required'); return; }
+      setError(null);
+      setWizardStep(2);
+      return;
     }
+
+    // Validate step 2
+    if (hasWarranty) {
+      if (form.warranty_months < 1) { setError('Warranty length must be at least 1'); return; }
+    }
+
+    setStep('saving');
 
     try {
       let receiptUrl: string | null = null;
@@ -162,15 +123,14 @@ function AddPageInner() {
       }
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setError('You must be signed in.'); setStep('confirm'); return; }
+      if (!user) { setError('You must be signed in.'); setStep('idle'); return; }
 
-      // Parse price_paid to numeric
       const priceNum = form.price_paid
         ? parseFloat(form.price_paid.replace(/[^0-9.]/g, ''))
         : null;
 
-      if (isReceipt) {
-        // ── Receipt ─────────────────────────────────────────────────
+      if (!hasWarranty) {
+        // ── Receipt only ─────────────────────────────────────────────
         const { error: insertError } = await supabase.from('warranties').insert({
           user_id:       user.id,
           item_name:     form.item_name,
@@ -189,13 +149,13 @@ function AddPageInner() {
           warranty_months: 0,
           expiry_date:   null,
         });
-        if (insertError) { console.error('[add] insert receipt:', insertError); setError(`Failed: ${insertError.message}`); setStep('confirm'); return; }
+        if (insertError) { console.error('[add] insert receipt:', insertError); setError(`Failed: ${insertError.message}`); setStep('idle'); return; }
       } else {
-        // ── Warranty ───────────────────────────────────────────────
-        const months = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
+        // ── Receipt + Warranty ───────────────────────────────────────
+        const totalMonths = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
         const purchaseDate = new Date(form.purchase_date);
         const expiryDate  = new Date(purchaseDate);
-        expiryDate.setMonth(expiryDate.getMonth() + months);
+        expiryDate.setMonth(expiryDate.getMonth() + totalMonths);
         const expiryDateStr = expiryDate.toISOString().split('T')[0];
 
         const now = new Date();
@@ -210,7 +170,7 @@ function AddPageInner() {
           item_name:        form.item_name,
           store_name:       form.store_name,
           purchase_date:    form.purchase_date,
-          warranty_months:  months,
+          warranty_months:  totalMonths,
           expiry_date:      expiryDateStr,
           notes:            form.notes || null,
           receipt_url:      receiptUrl,
@@ -223,19 +183,47 @@ function AddPageInner() {
           reminder_time:     form.reminder_time,
           type:             'warranty',
         });
-        if (insertError) { console.error('[add] insert warranty:', insertError); setError(`Failed: ${insertError.message}`); setStep('confirm'); return; }
+        if (insertError) { console.error('[add] insert warranty:', insertError); setError(`Failed: ${insertError.message}`); setStep('idle'); return; }
       }
 
       router.push('/app?saved=true');
     } catch (err) {
       console.error('Save error:', err);
       setError('Failed to save. Please try again.');
-      setStep('confirm');
+      setStep('idle');
     }
   };
 
-  if (step === 'idle') {
-    return <div className={styles.idle}><p>Opening camera…</p></div>;
+  const addDay = () => {
+    const raw = newDayInput.trim();
+    if (!raw) return;
+    const n = parseInt(raw, 10);
+    if (isNaN(n) || n < 0 || n > 365) return;
+    if (form.notificationDays.includes(n)) { setNewDayInput(''); return; }
+    setForm((f) => ({
+      ...f,
+      notificationDays: [...f.notificationDays, n].sort((a, b) => b - a),
+    }));
+    setNewDayInput('');
+  };
+
+  // Compute expiry preview
+  const expiryPreview = hasWarranty && form.purchase_date && form.warranty_months > 0
+    ? (() => {
+        const d = new Date(form.purchase_date);
+        const total = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
+        d.setMonth(d.getMonth() + total);
+        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      })()
+    : null;
+
+  if (step === 'idle' && wizardStep === 1 && !imageDataUrl && source !== 'camera' && source !== 'library') {
+    return (
+      <div className={styles.processing}>
+        <div className={styles.spinner} aria-hidden="true" />
+        <p className={styles.processingText}>Opening camera…</p>
+      </div>
+    );
   }
 
   if (step === 'processing') {
@@ -243,238 +231,293 @@ function AddPageInner() {
       <div className={styles.processing}>
         <div className={styles.spinner} aria-hidden="true" />
         <p className={styles.processingText}>Reading your receipt…</p>
-        <p className={styles.processingSubtext}>This usually takes 3–5 seconds</p>
+        <p className={styles.processingSubtext}>Usually takes 3–5 seconds</p>
       </div>
     );
   }
 
-  if (step === 'confirm' || step === 'saving') {
+  if (step === 'saving' || step === 'idle') {
     const isSaving = step === 'saving';
-    const isReceipt = itemType === 'receipt';
-    const totalMonths = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
-    const expiryDate = !isReceipt && form.purchase_date
-      ? (() => {
-          const d = new Date(form.purchase_date);
-          d.setMonth(d.getMonth() + totalMonths);
-          return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-        })()
-      : null;
 
     return (
       <div className={styles.confirm}>
-        <h2 className={styles.confirmTitle}>
-          {isReceipt ? 'Save receipt' : 'Confirm details'}
-        </h2>
-        <p className={styles.confirmSubtitle}>
-          {isReceipt
-            ? 'Review the details below.'
-            : 'We extracted what we could. Correct anything that looks wrong.'}
-        </p>
-
-        {/* ── Type Tabs ─────────────────────────────────────────── */}
-        <div className={styles.typeTabs} role="tablist" aria-label="Item type">
-          <button
-            role="tab"
-            aria-selected={itemType === 'warranty'}
-            className={`${styles.typeTab} ${itemType === 'warranty' ? styles.typeTabActive : ''}`}
-            onClick={() => handleTypeSwitch('warranty')}
-            disabled={isSaving}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Warranty
-          </button>
-          <button
-            role="tab"
-            aria-selected={itemType === 'receipt'}
-            className={`${styles.typeTab} ${itemType === 'receipt' ? styles.typeTabActive : ''}`}
-            onClick={() => handleTypeSwitch('receipt')}
-            disabled={isSaving}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-            </svg>
-            Receipt only
-          </button>
+        {/* Wizard header */}
+        <div className={styles.wizardHeader}>
+          <h2 className={styles.wizardTitle}>
+            {wizardStep === 1 ? 'Receipt details' : 'Warranty & alerts'}
+          </h2>
+          <div className={styles.wizardSteps} aria-label="Progress">
+            <span className={`${styles.wizardDot} ${wizardStep === 1 ? styles.wizardDotActive : ''}`} />
+            <span className={styles.wizardLine} />
+            <span className={`${styles.wizardDot} ${wizardStep === 2 ? styles.wizardDotActive : ''}`} />
+          </div>
         </div>
 
+        {/* Receipt preview thumbnail */}
+        {imageDataUrl && (
+          <div className={styles.receiptPreview}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageDataUrl} alt="Captured receipt" className={styles.receiptThumb} />
+          </div>
+        )}
+
         <div className={styles.form}>
-          {/* Item name */}
-          <div className={styles.field}>
-            <label htmlFor="item_name" className={styles.label}>
-              {isReceipt ? 'Item / purchase name *' : 'Item name *'}
-            </label>
-            <input id="item_name" type="text" value={form.item_name}
-              onChange={(e) => setForm((f) => ({ ...f, item_name: e.target.value }))}
-              placeholder={isReceipt ? 'e.g. MacBook Pro' : 'e.g. MacBook Pro 14-inch'}
-              className={styles.input} required disabled={isSaving} />
-          </div>
-
-          {/* Store name */}
-          <div className={styles.field}>
-            <label htmlFor="store_name" className={styles.label}>Store *</label>
-            <input id="store_name" type="text" value={form.store_name}
-              onChange={(e) => setForm((f) => ({ ...f, store_name: e.target.value }))}
-              placeholder="e.g. Apple Store" className={styles.input} required disabled={isSaving} />
-          </div>
-
-          {/* Category */}
-          <div className={styles.field}>
-            <label htmlFor="category" className={styles.label}>Category</label>
-            <select id="category" value={form.category}
-              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              className={styles.input} disabled={isSaving}>
-              {CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Purchase date */}
-          <div className={styles.field}>
-            <label htmlFor="purchase_date" className={styles.label}>Purchase date *</label>
-            <input id="purchase_date" type="date" value={form.purchase_date}
-              onChange={(e) => setForm((f) => ({ ...f, purchase_date: e.target.value }))}
-              className={styles.input} required disabled={isSaving} />
-          </div>
-
-          {/* ── Warranty-specific fields ───────────────────────── */}
-          {!isReceipt && (
+          {wizardStep === 1 ? (
             <>
-              {/* Warranty length */}
+              {/* Item name */}
               <div className={styles.field}>
-                <label className={styles.label}>Warranty length *</label>
-                <div className={styles.warrantyCustom}>
-                  <input
-                    type="number"
-                    min="1"
-                    max="120"
-                    value={form.warranty_months}
-                    onChange={(e) => setForm((f) => ({ ...f, warranty_months: parseInt(e.target.value) || 1 }))}
-                    className={`${styles.input} ${styles.warrantyNum}`}
-                    disabled={isSaving}
-                    aria-label="Warranty duration number"
-                  />
-                  <div className={styles.unitToggle} role="group" aria-label="Warranty unit">
-                    {(['months', 'years'] as const).map((u) => (
-                      <button
-                        key={u}
-                        type="button"
-                        onClick={() => setWarrantyUnit(u)}
-                        className={`${styles.unitBtn} ${warrantyUnit === u ? styles.unitBtnActive : ''}`}
-                        disabled={isSaving}
-                        aria-pressed={warrantyUnit === u}
-                      >
-                        {u}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {expiryDate && (
-                <p className={styles.expiryPreview}>
-                  Expires: <strong>{expiryDate}</strong>
-                </p>
-              )}
-
-              {/* Reminder time */}
-              <div className={styles.field}>
-                <label htmlFor="reminder_time" className={styles.label}>
-                  Reminder time <span className={styles.optional}>(optional)</span>
+                <label htmlFor="item_name" className={styles.label}>
+                  Item name <span className={styles.required}>*</span>
                 </label>
-                <input id="reminder_time" type="time" value={form.reminder_time}
-                  onChange={(e) => setForm((f) => ({ ...f, reminder_time: e.target.value }))}
-                  className={styles.input} disabled={isSaving} />
+                <input
+                  id="item_name"
+                  type="text"
+                  value={form.item_name}
+                  onChange={(e) => setForm((f) => ({ ...f, item_name: e.target.value }))}
+                  placeholder="e.g. MacBook Pro 14-inch"
+                  className={styles.input}
+                  disabled={isSaving}
+                />
               </div>
 
-              {/* Notification preferences */}
+              {/* Store */}
               <div className={styles.field}>
-                <p className={styles.label}>Remind me before expiry</p>
-                <div className={styles.notifyCard}>
-                  {form.notificationDays.slice().sort((a, b) => b - a).length === 0 && (
-                    <p className={styles.notifyEmpty}>No reminders set. Add one below.</p>
-                  )}
-                  {form.notificationDays.slice().sort((a, b) => b - a).map((days) => (
-                    <div key={days} className={styles.notifyRow}>
-                      <span className={styles.notifyLabel}>
-                        {days === 0 ? 'On expiry day' : `${days} day${days !== 1 ? 's' : ''} before`}
-                      </span>
-                      <button type="button"
-                        onClick={() => setForm((f) => ({ ...f, notificationDays: f.notificationDays.filter((d) => d !== days) }))}
-                        className={styles.notifyRemove} aria-label={`Remove ${days} day notification`} disabled={isSaving}>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
-                      </button>
-                    </div>
+                <label htmlFor="store_name" className={styles.label}>
+                  Store <span className={styles.required}>*</span>
+                </label>
+                <input
+                  id="store_name"
+                  type="text"
+                  value={form.store_name}
+                  onChange={(e) => setForm((f) => ({ ...f, store_name: e.target.value }))}
+                  placeholder="e.g. Apple Store"
+                  className={styles.input}
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* Category */}
+              <div className={styles.field}>
+                <label htmlFor="category" className={styles.label}>Category</label>
+                <select
+                  id="category"
+                  value={form.category}
+                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                  className={styles.input}
+                  disabled={isSaving}
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
                   ))}
-                  <div className={styles.notifyAddRow}>
-                    <input type="number" min="0" max="365" placeholder="Days before expiry"
-                      value={newDayInput}
-                      onChange={(e) => setNewDayInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDay(); } }}
-                      className={styles.notifyAddInput} disabled={isSaving} />
-                    <button type="button" onClick={addDay} className={styles.notifyAddBtn}
-                      disabled={isSaving || !newDayInput.trim()}>Add</button>
+                </select>
+              </div>
+
+              {/* Purchase date */}
+              <div className={styles.field}>
+                <label htmlFor="purchase_date" className={styles.label}>
+                  Purchase date <span className={styles.required}>*</span>
+                </label>
+                <input
+                  id="purchase_date"
+                  type="date"
+                  value={form.purchase_date}
+                  onChange={(e) => setForm((f) => ({ ...f, purchase_date: e.target.value }))}
+                  className={styles.input}
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* Price */}
+              <div className={styles.field}>
+                <label htmlFor="price_paid" className={styles.label}>
+                  Price paid <span className={styles.optional}>(optional)</span>
+                </label>
+                <input
+                  id="price_paid"
+                  type="text"
+                  inputMode="decimal"
+                  value={form.price_paid}
+                  onChange={(e) => setForm((f) => ({ ...f, price_paid: e.target.value }))}
+                  placeholder="e.g. 1299.00"
+                  className={styles.input}
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* Order number */}
+              <div className={styles.field}>
+                <label htmlFor="order_number" className={styles.label}>
+                  Order / receipt number <span className={styles.optional}>(optional)</span>
+                </label>
+                <input
+                  id="order_number"
+                  type="text"
+                  value={form.order_number}
+                  onChange={(e) => setForm((f) => ({ ...f, order_number: e.target.value }))}
+                  placeholder="e.g. ORD-20240315-001"
+                  className={styles.input}
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* Serial number */}
+              <div className={styles.field}>
+                <label htmlFor="serial_number" className={styles.label}>
+                  Serial / model number <span className={styles.optional}>(optional)</span>
+                </label>
+                <input
+                  id="serial_number"
+                  type="text"
+                  value={form.serial_number}
+                  onChange={(e) => setForm((f) => ({ ...f, serial_number: e.target.value }))}
+                  placeholder="e.g. SN123456789"
+                  className={styles.input}
+                  disabled={isSaving}
+                />
+              </div>
+
+              {/* Warranty toggle */}
+              <div className={styles.field}>
+                <label className={styles.label}>Includes warranty?</label>
+                <div className={styles.warrantyCustom}>
+                  <div className={styles.warrantyCustom}>
+                    <button
+                      type="button"
+                      className={`${styles.warrantyToggleBtn} ${hasWarranty ? styles.warrantyToggleBtnActive : ''}`}
+                      onClick={() => setHasWarranty(true)}
+                      disabled={isSaving}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.warrantyToggleBtn} ${!hasWarranty ? styles.warrantyToggleBtnActive : ''}`}
+                      onClick={() => setHasWarranty(false)}
+                      disabled={isSaving}
+                    >
+                      No
+                    </button>
                   </div>
                 </div>
               </div>
             </>
-          )}
+          ) : (
+            <>
+              {/* Warranty length — only if hasWarranty */}
+              {hasWarranty && (
+                <>
+                  <div className={styles.field}>
+                    <label className={styles.label}>Warranty length <span className={styles.required}>*</span></label>
+                    <div className={styles.warrantyCustom}>
+                      <input
+                        type="number"
+                        min="1"
+                        max="120"
+                        value={form.warranty_months}
+                        onChange={(e) => setForm((f) => ({ ...f, warranty_months: parseInt(e.target.value) || 1 }))}
+                        className={`${styles.input} ${styles.warrantyNum}`}
+                        disabled={isSaving}
+                        aria-label="Warranty duration number"
+                      />
+                      <div className={styles.unitToggle} role="group" aria-label="Warranty unit">
+                        {(['months', 'years'] as const).map((u) => (
+                          <button
+                            key={u}
+                            type="button"
+                            onClick={() => setWarrantyUnit(u)}
+                            className={`${styles.unitBtn} ${warrantyUnit === u ? styles.unitBtnActive : ''}`}
+                            disabled={isSaving}
+                            aria-pressed={warrantyUnit === u}
+                          >
+                            {u}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {expiryPreview && (
+                      <p className={styles.expiryPreview}>
+                        Expires <strong>{expiryPreview}</strong>
+                      </p>
+                    )}
+                  </div>
 
-          {/* ── Shared fields (receipt + warranty) ──────────────── */}
+                  {/* Reminder time */}
+                  <div className={styles.field}>
+                    <label htmlFor="reminder_time" className={styles.label}>
+                      Reminder time <span className={styles.optional}>(optional)</span>
+                    </label>
+                    <input
+                      id="reminder_time"
+                      type="time"
+                      value={form.reminder_time}
+                      onChange={(e) => setForm((f) => ({ ...f, reminder_time: e.target.value }))}
+                      className={styles.input}
+                      disabled={isSaving}
+                    />
+                  </div>
 
-          {/* Price paid */}
-          <div className={styles.field}>
-            <label htmlFor="price_paid" className={styles.label}>
-              Price paid <span className={styles.optional}>(optional)</span>
-            </label>
-            <input id="price_paid" type="text" inputMode="decimal" value={form.price_paid}
-              onChange={(e) => setForm((f) => ({ ...f, price_paid: e.target.value }))}
-              placeholder="e.g. 1299.00" className={styles.input} disabled={isSaving} />
-          </div>
+                  {/* Notification days */}
+                  <div className={styles.field}>
+                    <p className={styles.label}>Remind me before expiry</p>
+                    <div className={styles.notifyCard}>
+                      {form.notificationDays.length === 0 && (
+                        <p className={styles.notifyEmpty}>No reminders. Add one below.</p>
+                      )}
+                      {form.notificationDays.slice().sort((a, b) => b - a).map((days) => (
+                        <div key={days} className={styles.notifyRow}>
+                          <span className={styles.notifyLabel}>
+                            {days === 0 ? 'On expiry day' : `${days}d before`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setForm((f) => ({ ...f, notificationDays: f.notificationDays.filter((d) => d !== days) }))}
+                            className={styles.notifyRemove}
+                            aria-label={`Remove ${days}d reminder`}
+                            disabled={isSaving}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <div className={styles.notifyAddRow}>
+                        <input
+                          type="number"
+                          min="0"
+                          max="365"
+                          placeholder="Days before expiry"
+                          value={newDayInput}
+                          onChange={(e) => setNewDayInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDay(); } }}
+                          className={styles.notifyAddInput}
+                          disabled={isSaving}
+                        />
+                        <button type="button" onClick={addDay} className={styles.notifyAddBtn} disabled={isSaving || !newDayInput.trim()}>
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
 
-          {/* Order number */}
-          <div className={styles.field}>
-            <label htmlFor="order_number" className={styles.label}>
-              Order / receipt number <span className={styles.optional}>(optional)</span>
-            </label>
-            <input id="order_number" type="text" value={form.order_number}
-              onChange={(e) => setForm((f) => ({ ...f, order_number: e.target.value }))}
-              placeholder="e.g. ORD-20240315-001" className={styles.input} disabled={isSaving} />
-          </div>
-
-          {/* Serial number */}
-          <div className={styles.field}>
-            <label htmlFor="serial_number" className={styles.label}>
-              Serial / model number <span className={styles.optional}>(optional)</span>
-            </label>
-            <input id="serial_number" type="text" value={form.serial_number}
-              onChange={(e) => setForm((f) => ({ ...f, serial_number: e.target.value }))}
-              placeholder="e.g. SN123456789" className={styles.input} disabled={isSaving} />
-          </div>
-
-          {/* Notes */}
-          <div className={styles.field}>
-            <label htmlFor="notes" className={styles.label}>
-              Notes <span className={styles.optional}>(optional)</span>
-            </label>
-            <textarea id="notes" value={form.notes}
-              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              placeholder="Extended warranty info, gift recipient…" className={styles.textarea}
-              rows={3} disabled={isSaving} />
-          </div>
-
-          {/* Receipt preview */}
-          {imageDataUrl && (
-            <div className={styles.receiptPreview}>
-              <p className={styles.label}>Receipt photo</p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageDataUrl} alt="Captured receipt" className={styles.receiptThumb} />
-            </div>
+              {/* Notes — always shown */}
+              <div className={styles.field}>
+                <label htmlFor="notes" className={styles.label}>
+                  Notes <span className={styles.optional}>(optional)</span>
+                </label>
+                <textarea
+                  id="notes"
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Extended warranty info, gift recipient…"
+                  className={styles.textarea}
+                  rows={3}
+                  disabled={isSaving}
+                />
+              </div>
+            </>
           )}
 
           {error && (
@@ -482,12 +525,25 @@ function AddPageInner() {
           )}
         </div>
 
+        {/* Form actions */}
         <div className={styles.formActions}>
-          <button className={styles.btnSecondary} onClick={() => router.push('/app')} disabled={isSaving}>
-            Cancel
-          </button>
-          <button className={styles.btnPrimary} onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving…' : isReceipt ? 'Save receipt' : 'Save warranty'}
+          {wizardStep === 2 && (
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={() => setWizardStep(1)}
+              disabled={isSaving}
+            >
+              Back
+            </button>
+          )}
+          <button
+            type="button"
+            className={hasWarranty && wizardStep === 1 ? styles.btnPrimary : styles.btnPrimary}
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Saving…' : wizardStep === 1 ? (hasWarranty ? 'Next: Warranty →' : 'Save receipt') : 'Save'}
           </button>
         </div>
       </div>

@@ -73,17 +73,16 @@
 .sortBtn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  width: 40px;
   height: 40px;
-  padding: 0 12px;
+  padding: 0;
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 500;
   color: var(--text-secondary);
-  white-space: nowrap;
   cursor: pointer;
+  flex-shrink: 0;
   transition:
     background  var(--duration-micro) var(--ease-out),
     color       var(--duration-micro) var(--ease-out),
