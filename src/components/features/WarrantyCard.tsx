@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ExpiryBadge } from './ExpiryBadge';
 import { Dialog } from '@/components/ui/Dialog';
-import { useState } from 'react';
+import { useState, Component, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Warranty, WarrantyStatus } from '@/lib/db/types';
 import styles from './WarrantyCard.module.css';
@@ -13,36 +13,42 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
-export function WarrantyCard({ warranty, onDelete }: Props) {
+type WarrantyPlus = Warranty & {
+  _computedStatus?: string;
+  _daysLeft?: number | null;
+};
+
+function isValidStatus(s: string | undefined): s is WarrantyStatus {
+  return s === 'active' || s === 'expiring' || s === 'expired' || s === 'archived';
+}
+
+function WarrantyCardInner({ warranty, onDelete }: Props) {
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const supabase = createClient();
 
-  const isReceipt = (warranty.type ?? 'warranty') === 'receipt';
+  const w = warranty as WarrantyPlus;
+  const isReceipt = (w.type ?? 'warranty') === 'receipt';
 
-  // Use computed status from WarrantyList (passed via _computedStatus) or fallback to DB status
-  const effectiveStatus = (warranty as Warranty & { _computedStatus?: string })._computedStatus
-    ?? (warranty.status ?? 'active');
+  const rawStatus = w._computedStatus ?? (w.status ?? 'active');
+  const effectiveStatus: WarrantyStatus = isValidStatus(rawStatus) ? rawStatus : 'active';
 
   const handleDelete = async () => {
     setDeleting(true);
-    await supabase.from('warranties').delete().eq('id', warranty.id);
-    onDelete?.(warranty.id);
+    await supabase.from('warranties').delete().eq('id', w.id);
+    onDelete?.(w.id);
     setShowDelete(false);
     setDeleting(false);
   };
 
-  // Format price
-  const priceDisplay = warranty.price_paid != null
-    ? `$${Number(warranty.price_paid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const priceDisplay = w.price_paid != null
+    ? `$${Number(w.price_paid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
 
-  // Short date: "Mar 15"
-  const shortDate = warranty.purchase_date
-    ? new Date(warranty.purchase_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const shortDate = w.purchase_date
+    ? new Date(w.purchase_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null;
 
-  // Status for accent bar color
   const accentClass = isReceipt
     ? styles.accentReceipt
     : effectiveStatus === 'expired'
@@ -51,36 +57,25 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
     ? styles.accentExpiring
     : '';
 
-  const hasExpiry = !!warranty.expiry_date && warranty.expiry_date.trim() !== '';
+  const hasExpiry = !!(w.expiry_date && w.expiry_date.trim());
 
   return (
     <>
       <Link
-        href={`/app/warranty/${warranty.id}`}
+        href={`/app/warranty/${w.id}`}
         className={styles.card}
-        aria-label={`${warranty.item_name}${isReceipt ? ' receipt' : ' warranty'}`}
+        aria-label={`${w.item_name}${isReceipt ? ' receipt' : ' warranty'}`}
       >
-        {/* Left accent bar */}
         <span className={`${styles.accent} ${accentClass}`} aria-hidden="true" />
 
-        {/* Content */}
         <div className={styles.content}>
           <div className={styles.topLine}>
-            <span className={styles.itemName}>{warranty.item_name}</span>
-            {!isReceipt && hasExpiry && (
-              <span className={styles.typeIndicator}>W</span>
-            )}
+            <span className={styles.itemName}>{w.item_name}</span>
           </div>
           <div className={styles.bottomLine}>
-            {warranty.store_name && (
-              <span className={styles.storeName}>{warranty.store_name}</span>
-            )}
-            {warranty.store_name && shortDate && (
-              <span className={styles.metaDot}>·</span>
-            )}
-            {shortDate && (
-              <span className={styles.storeName}>{shortDate}</span>
-            )}
+            {w.store_name && <span className={styles.storeName}>{w.store_name}</span>}
+            {w.store_name && shortDate && <span className={styles.metaDot}>·</span>}
+            {shortDate && <span className={styles.storeName}>{shortDate}</span>}
             {priceDisplay && (
               <>
                 <span className={styles.metaDot}>·</span>
@@ -90,10 +85,9 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
           </div>
         </div>
 
-        {/* Right side: badge + delete */}
         <div className={styles.right}>
           {!isReceipt && hasExpiry ? (
-            <ExpiryBadge expiryDate={warranty.expiry_date} status={effectiveStatus as WarrantyStatus} />
+            <ExpiryBadge expiryDate={w.expiry_date ?? ''} status={effectiveStatus} />
           ) : isReceipt ? (
             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>
               Receipt
@@ -106,7 +100,7 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
               e.stopPropagation();
               setShowDelete(true);
             }}
-            aria-label={`Delete ${warranty.item_name}`}
+            aria-label={`Delete ${w.item_name}`}
           >
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M2 4h12M5.333 4V2.667a1 1 0 0 1 1-1h3.334a1 1 0 0 1 1 1V4m2 0v9.333a1 1 0 0 1-1 1H4.333a1 1 0 0 1-1-1V4" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
@@ -125,10 +119,28 @@ export function WarrantyCard({ warranty, onDelete }: Props) {
         ]}
       >
         <p>
-          <strong>{warranty.item_name}</strong> will be permanently deleted.
+          <strong>{w.item_name}</strong> will be permanently deleted.
           This cannot be undone.
         </p>
       </Dialog>
     </>
   );
 }
+
+// Error boundary to prevent the whole list from crashing
+export class WarrantyCardErrorBoundary extends Component<{ children: ReactNode }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return null; // Silently drop broken cards
+    }
+    return this.props.children;
+  }
+}
+
+export { WarrantyCardInner as WarrantyCard };

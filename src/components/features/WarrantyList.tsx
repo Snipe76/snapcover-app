@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { WarrantyCard } from './WarrantyCard';
+import { WarrantyCard, WarrantyCardErrorBoundary } from './WarrantyCard';
 import { useFabMenu } from '@/contexts/FabMenuContext';
 import type { Warranty } from '@/lib/db/types';
 import styles from './WarrantyList.module.css';
@@ -414,7 +414,9 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
         <ul className={styles.list} aria-label="Warranties and receipts">
           {sorted.map((w) => (
             <li key={w.id}>
-              <WarrantyCard warranty={w} />
+              <WarrantyCardErrorBoundary>
+                <WarrantyCard warranty={w} />
+              </WarrantyCardErrorBoundary>
             </li>
           ))}
         </ul>

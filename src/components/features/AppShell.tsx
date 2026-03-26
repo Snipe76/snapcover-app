@@ -45,6 +45,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     } else if (source === 'library') {
       libraryInputRef.current?.click();
     } else {
+      // Manual: clear any stale camera image from sessionStorage
+      sessionStorage.removeItem('pending_warranty_image');
       router.push('/app/add?source=manual');
     }
   };

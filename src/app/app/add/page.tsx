@@ -33,6 +33,8 @@ const DEFAULT_FORM = {
   notificationDays: [30, 7, 1] as number[],
 };
 
+type WarrantyUnit = 'days' | 'months' | 'years';
+
 function AddPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,8 +43,9 @@ function AddPageInner() {
   const [step, setStep]         = useState<Step>('idle');
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [error, setError]       = useState<string | null>(null);
-  const [warrantyUnit, setWarrantyUnit] = useState<'months' | 'years'>('months');
+  const [warrantyUnit, setWarrantyUnit] = useState<WarrantyUnit>('months');
   const [hasWarranty, setHasWarranty] = useState(true);
   const [form, setForm]         = useState(DEFAULT_FORM);
   const [newDayInput, setNewDayInput] = useState('');
@@ -52,7 +55,6 @@ function AddPageInner() {
     if (source === 'manual') {
       setStep('processing');
       setWizardStep(1);
-      // Short delay to show processing state
       setTimeout(() => setStep('idle'), 300);
       return;
     }
@@ -89,18 +91,21 @@ function AddPageInner() {
     }
   };
 
-  const handleSave = async () => {
-    // Validate step 1 fields
+  const handleNext = () => {
     if (wizardStep === 1) {
       if (!form.item_name.trim()) { setError('Item name is required'); return; }
       if (!form.store_name.trim()) { setError('Store is required'); return; }
       if (!form.purchase_date) { setError('Purchase date is required'); return; }
       setError(null);
       setWizardStep(2);
+      // Scroll to top of page
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+    handleSave();
+  };
 
-    // Validate step 2
+  const handleSave = async () => {
     if (hasWarranty) {
       if (form.warranty_months < 1) { setError('Warranty length must be at least 1'); return; }
     }
@@ -130,7 +135,6 @@ function AddPageInner() {
         : null;
 
       if (!hasWarranty) {
-        // ── Receipt only ─────────────────────────────────────────────
         const { error: insertError } = await supabase.from('warranties').insert({
           user_id:       user.id,
           item_name:     form.item_name,
@@ -149,13 +153,23 @@ function AddPageInner() {
           warranty_months: 0,
           expiry_date:   null,
         });
-        if (insertError) { console.error('[add] insert receipt:', insertError); setError(`Failed: ${insertError.message}`); setStep('idle'); return; }
+        if (insertError) { console.error('[add]', insertError); setError(`Failed: ${insertError.message}`); setStep('idle'); return; }
       } else {
-        // ── Receipt + Warranty ───────────────────────────────────────
-        const totalMonths = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
+        const totalDays = warrantyUnit === 'days'
+          ? form.warranty_months
+          : warrantyUnit === 'years'
+          ? form.warranty_months * 365
+          : form.warranty_months * 30;
+
         const purchaseDate = new Date(form.purchase_date);
         const expiryDate  = new Date(purchaseDate);
-        expiryDate.setMonth(expiryDate.getMonth() + totalMonths);
+        if (warrantyUnit === 'days') {
+          expiryDate.setDate(expiryDate.getDate() + form.warranty_months);
+        } else if (warrantyUnit === 'years') {
+          expiryDate.setFullYear(expiryDate.getFullYear() + form.warranty_months);
+        } else {
+          expiryDate.setMonth(expiryDate.getMonth() + form.warranty_months);
+        }
         const expiryDateStr = expiryDate.toISOString().split('T')[0];
 
         const now = new Date();
@@ -170,7 +184,7 @@ function AddPageInner() {
           item_name:        form.item_name,
           store_name:       form.store_name,
           purchase_date:    form.purchase_date,
-          warranty_months:  totalMonths,
+          warranty_months:  form.warranty_months,
           expiry_date:      expiryDateStr,
           notes:            form.notes || null,
           receipt_url:      receiptUrl,
@@ -183,7 +197,7 @@ function AddPageInner() {
           reminder_time:     form.reminder_time,
           type:             'warranty',
         });
-        if (insertError) { console.error('[add] insert warranty:', insertError); setError(`Failed: ${insertError.message}`); setStep('idle'); return; }
+        if (insertError) { console.error('[add]', insertError); setError(`Failed: ${insertError.message}`); setStep('idle'); return; }
       }
 
       router.push('/app?saved=true');
@@ -211,8 +225,9 @@ function AddPageInner() {
   const expiryPreview = hasWarranty && form.purchase_date && form.warranty_months > 0
     ? (() => {
         const d = new Date(form.purchase_date);
-        const total = warrantyUnit === 'years' ? form.warranty_months * 12 : form.warranty_months;
-        d.setMonth(d.getMonth() + total);
+        if (warrantyUnit === 'days') d.setDate(d.getDate() + form.warranty_months);
+        else if (warrantyUnit === 'years') d.setFullYear(d.getFullYear() + form.warranty_months);
+        else d.setMonth(d.getMonth() + form.warranty_months);
         return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
       })()
     : null;
@@ -243,22 +258,64 @@ function AddPageInner() {
       <div className={styles.confirm}>
         {/* Wizard header */}
         <div className={styles.wizardHeader}>
-          <h2 className={styles.wizardTitle}>
-            {wizardStep === 1 ? 'Receipt details' : 'Warranty & alerts'}
-          </h2>
           <div className={styles.wizardSteps} aria-label="Progress">
             <span className={`${styles.wizardDot} ${wizardStep === 1 ? styles.wizardDotActive : ''}`} />
             <span className={styles.wizardLine} />
             <span className={`${styles.wizardDot} ${wizardStep === 2 ? styles.wizardDotActive : ''}`} />
           </div>
+          <h2 className={styles.wizardTitle}>
+            {wizardStep === 1 ? 'Receipt details' : 'Warranty & alerts'}
+          </h2>
         </div>
 
-        {/* Receipt preview thumbnail */}
+        {/* Receipt preview + lightbox */}
         {imageDataUrl && (
-          <div className={styles.receiptPreview}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageDataUrl} alt="Captured receipt" className={styles.receiptThumb} />
-          </div>
+          <>
+            <div className={styles.receiptPreview}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageDataUrl}
+                alt="Captured receipt"
+                className={styles.receiptThumb}
+                onClick={() => setLightboxOpen(true)}
+              />
+              <button
+                type="button"
+                className={styles.receiptTap}
+                onClick={() => setLightboxOpen(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: '12px' }}
+              >
+                Tap to enlarge
+              </button>
+            </div>
+            {lightboxOpen && (
+              <div
+                className={styles.lightbox}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Receipt full view"
+                onClick={() => setLightboxOpen(false)}
+              >
+                <button
+                  type="button"
+                  className={styles.lightboxClose}
+                  onClick={() => setLightboxOpen(false)}
+                  aria-label="Close"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </button>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imageDataUrl}
+                  alt="Receipt full view"
+                  className={styles.lightboxImg}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            )}
+          </>
         )}
 
         <div className={styles.form}>
@@ -267,45 +324,29 @@ function AddPageInner() {
               {/* Item name */}
               <div className={styles.field}>
                 <label htmlFor="item_name" className={styles.label}>
-                  Item name <span className={styles.required}>*</span>
+                  Item name <span style={{ color: 'var(--danger)' }}>*</span>
                 </label>
-                <input
-                  id="item_name"
-                  type="text"
-                  value={form.item_name}
+                <input id="item_name" type="text" value={form.item_name}
                   onChange={(e) => setForm((f) => ({ ...f, item_name: e.target.value }))}
-                  placeholder="e.g. MacBook Pro 14-inch"
-                  className={styles.input}
-                  disabled={isSaving}
-                />
+                  placeholder="e.g. MacBook Pro 14-inch" className={styles.input} disabled={isSaving} />
               </div>
 
               {/* Store */}
               <div className={styles.field}>
                 <label htmlFor="store_name" className={styles.label}>
-                  Store <span className={styles.required}>*</span>
+                  Store <span style={{ color: 'var(--danger)' }}>*</span>
                 </label>
-                <input
-                  id="store_name"
-                  type="text"
-                  value={form.store_name}
+                <input id="store_name" type="text" value={form.store_name}
                   onChange={(e) => setForm((f) => ({ ...f, store_name: e.target.value }))}
-                  placeholder="e.g. Apple Store"
-                  className={styles.input}
-                  disabled={isSaving}
-                />
+                  placeholder="e.g. Apple Store" className={styles.input} disabled={isSaving} />
               </div>
 
               {/* Category */}
               <div className={styles.field}>
                 <label htmlFor="category" className={styles.label}>Category</label>
-                <select
-                  id="category"
-                  value={form.category}
+                <select id="category" value={form.category}
                   onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                  className={styles.input}
-                  disabled={isSaving}
-                >
+                  className={styles.input} disabled={isSaving}>
                   {CATEGORIES.map((c) => (
                     <option key={c.value} value={c.value}>{c.label}</option>
                   ))}
@@ -315,16 +356,11 @@ function AddPageInner() {
               {/* Purchase date */}
               <div className={styles.field}>
                 <label htmlFor="purchase_date" className={styles.label}>
-                  Purchase date <span className={styles.required}>*</span>
+                  Purchase date <span style={{ color: 'var(--danger)' }}>*</span>
                 </label>
-                <input
-                  id="purchase_date"
-                  type="date"
-                  value={form.purchase_date}
+                <input id="purchase_date" type="date" value={form.purchase_date}
                   onChange={(e) => setForm((f) => ({ ...f, purchase_date: e.target.value }))}
-                  className={styles.input}
-                  disabled={isSaving}
-                />
+                  className={styles.input} disabled={isSaving} />
               </div>
 
               {/* Price */}
@@ -332,16 +368,9 @@ function AddPageInner() {
                 <label htmlFor="price_paid" className={styles.label}>
                   Price paid <span className={styles.optional}>(optional)</span>
                 </label>
-                <input
-                  id="price_paid"
-                  type="text"
-                  inputMode="decimal"
-                  value={form.price_paid}
+                <input id="price_paid" type="text" inputMode="decimal" value={form.price_paid}
                   onChange={(e) => setForm((f) => ({ ...f, price_paid: e.target.value }))}
-                  placeholder="e.g. 1299.00"
-                  className={styles.input}
-                  disabled={isSaving}
-                />
+                  placeholder="e.g. 1299.00" className={styles.input} disabled={isSaving} />
               </div>
 
               {/* Order number */}
@@ -349,15 +378,9 @@ function AddPageInner() {
                 <label htmlFor="order_number" className={styles.label}>
                   Order / receipt number <span className={styles.optional}>(optional)</span>
                 </label>
-                <input
-                  id="order_number"
-                  type="text"
-                  value={form.order_number}
+                <input id="order_number" type="text" value={form.order_number}
                   onChange={(e) => setForm((f) => ({ ...f, order_number: e.target.value }))}
-                  placeholder="e.g. ORD-20240315-001"
-                  className={styles.input}
-                  disabled={isSaving}
-                />
+                  placeholder="e.g. ORD-20240315-001" className={styles.input} disabled={isSaving} />
               </div>
 
               {/* Serial number */}
@@ -365,49 +388,43 @@ function AddPageInner() {
                 <label htmlFor="serial_number" className={styles.label}>
                   Serial / model number <span className={styles.optional}>(optional)</span>
                 </label>
-                <input
-                  id="serial_number"
-                  type="text"
-                  value={form.serial_number}
+                <input id="serial_number" type="text" value={form.serial_number}
                   onChange={(e) => setForm((f) => ({ ...f, serial_number: e.target.value }))}
-                  placeholder="e.g. SN123456789"
-                  className={styles.input}
-                  disabled={isSaving}
-                />
+                  placeholder="e.g. SN123456789" className={styles.input} disabled={isSaving} />
               </div>
 
-              {/* Warranty toggle */}
+              {/* Include warranty? */}
               <div className={styles.field}>
-                <label className={styles.label}>Includes warranty?</label>
-                <div className={styles.warrantyCustom}>
-                  <div className={styles.warrantyCustom}>
-                    <button
-                      type="button"
-                      className={`${styles.warrantyToggleBtn} ${hasWarranty ? styles.warrantyToggleBtnActive : ''}`}
-                      onClick={() => setHasWarranty(true)}
-                      disabled={isSaving}
-                    >
-                      Yes
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.warrantyToggleBtn} ${!hasWarranty ? styles.warrantyToggleBtnActive : ''}`}
-                      onClick={() => setHasWarranty(false)}
-                      disabled={isSaving}
-                    >
-                      No
-                    </button>
-                  </div>
+                <p className={styles.label}>Includes warranty?</p>
+                <div className={styles.yesNoGroup}>
+                  <button
+                    type="button"
+                    className={`${styles.warrantyToggleBtn} ${hasWarranty ? styles.warrantyToggleBtnActive : ''}`}
+                    onClick={() => setHasWarranty(true)}
+                    disabled={isSaving}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.warrantyToggleBtn} ${!hasWarranty ? styles.warrantyToggleBtnActive : ''}`}
+                    onClick={() => setHasWarranty(false)}
+                    disabled={isSaving}
+                  >
+                    No
+                  </button>
                 </div>
               </div>
             </>
           ) : (
             <>
-              {/* Warranty length — only if hasWarranty */}
               {hasWarranty && (
                 <>
+                  {/* Warranty length */}
                   <div className={styles.field}>
-                    <label className={styles.label}>Warranty length <span className={styles.required}>*</span></label>
+                    <label className={styles.label}>
+                      Warranty length <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
                     <div className={styles.warrantyCustom}>
                       <input
                         type="number"
@@ -420,7 +437,7 @@ function AddPageInner() {
                         aria-label="Warranty duration number"
                       />
                       <div className={styles.unitToggle} role="group" aria-label="Warranty unit">
-                        {(['months', 'years'] as const).map((u) => (
+                        {(['days', 'months', 'years'] as WarrantyUnit[]).map((u) => (
                           <button
                             key={u}
                             type="button"
@@ -435,9 +452,7 @@ function AddPageInner() {
                       </div>
                     </div>
                     {expiryPreview && (
-                      <p className={styles.expiryPreview}>
-                        Expires <strong>{expiryPreview}</strong>
-                      </p>
+                      <p className={styles.expiryPreview}>Expires <strong>{expiryPreview}</strong></p>
                     )}
                   </div>
 
@@ -446,14 +461,9 @@ function AddPageInner() {
                     <label htmlFor="reminder_time" className={styles.label}>
                       Reminder time <span className={styles.optional}>(optional)</span>
                     </label>
-                    <input
-                      id="reminder_time"
-                      type="time"
-                      value={form.reminder_time}
+                    <input id="reminder_time" type="time" value={form.reminder_time}
                       onChange={(e) => setForm((f) => ({ ...f, reminder_time: e.target.value }))}
-                      className={styles.input}
-                      disabled={isSaving}
-                    />
+                      className={styles.input} disabled={isSaving} />
                   </div>
 
                   {/* Notification days */}
@@ -468,13 +478,9 @@ function AddPageInner() {
                           <span className={styles.notifyLabel}>
                             {days === 0 ? 'On expiry day' : `${days}d before`}
                           </span>
-                          <button
-                            type="button"
+                          <button type="button"
                             onClick={() => setForm((f) => ({ ...f, notificationDays: f.notificationDays.filter((d) => d !== days) }))}
-                            className={styles.notifyRemove}
-                            aria-label={`Remove ${days}d reminder`}
-                            disabled={isSaving}
-                          >
+                            className={styles.notifyRemove} aria-label={`Remove ${days}d reminder`} disabled={isSaving}>
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                             </svg>
@@ -482,40 +488,28 @@ function AddPageInner() {
                         </div>
                       ))}
                       <div className={styles.notifyAddRow}>
-                        <input
-                          type="number"
-                          min="0"
-                          max="365"
-                          placeholder="Days before expiry"
+                        <input type="number" min="0" max="365" placeholder="Days before expiry"
                           value={newDayInput}
                           onChange={(e) => setNewDayInput(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDay(); } }}
-                          className={styles.notifyAddInput}
-                          disabled={isSaving}
-                        />
-                        <button type="button" onClick={addDay} className={styles.notifyAddBtn} disabled={isSaving || !newDayInput.trim()}>
-                          Add
-                        </button>
+                          className={styles.notifyAddInput} disabled={isSaving} />
+                        <button type="button" onClick={addDay} className={styles.notifyAddBtn}
+                          disabled={isSaving || !newDayInput.trim()}>Add</button>
                       </div>
                     </div>
                   </div>
                 </>
               )}
 
-              {/* Notes — always shown */}
+              {/* Notes */}
               <div className={styles.field}>
                 <label htmlFor="notes" className={styles.label}>
                   Notes <span className={styles.optional}>(optional)</span>
                 </label>
-                <textarea
-                  id="notes"
-                  value={form.notes}
+                <textarea id="notes" value={form.notes}
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                  placeholder="Extended warranty info, gift recipient…"
-                  className={styles.textarea}
-                  rows={3}
-                  disabled={isSaving}
-                />
+                  placeholder="Extended warranty info, gift recipient…" className={styles.textarea}
+                  rows={3} disabled={isSaving} />
               </div>
             </>
           )}
@@ -528,21 +522,15 @@ function AddPageInner() {
         {/* Form actions */}
         <div className={styles.formActions}>
           {wizardStep === 2 && (
-            <button
-              type="button"
-              className={styles.btnSecondary}
-              onClick={() => setWizardStep(1)}
-              disabled={isSaving}
-            >
+            <button type="button" className={styles.btnSecondary}
+              onClick={() => { setWizardStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              disabled={isSaving}>
               Back
             </button>
           )}
-          <button
-            type="button"
-            className={hasWarranty && wizardStep === 1 ? styles.btnPrimary : styles.btnPrimary}
-            onClick={handleSave}
-            disabled={isSaving}
-          >
+          <button type="button" className={styles.btnPrimary}
+            onClick={handleNext}
+            disabled={isSaving}>
             {isSaving ? 'Saving…' : wizardStep === 1 ? (hasWarranty ? 'Next: Warranty →' : 'Save receipt') : 'Save'}
           </button>
         </div>
