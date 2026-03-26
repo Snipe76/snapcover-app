@@ -72,16 +72,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {getTitle(pathname)}
           </span>
 
-          <Link
-            href="/app/notifications"
-            className={styles.headerAction}
-            aria-label="Notifications"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
         </div>
       </header>
 
@@ -216,7 +206,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 function getTitle(pathname: string): string {
   if (pathname.startsWith('/app/warranty/')) return 'Details';
   if (pathname === '/app/add') return 'Add item';
-  if (pathname === '/app/notifications') return 'Notifications';
   if (pathname === '/app/settings') return 'Settings';
   if (pathname === '/app') return 'SnapCover';
   return 'SnapCover';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { extractReceiptData } from '@/lib/ocr';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -39,6 +39,7 @@ function AddPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const source = searchParams.get('source');
+  const formRef = useRef<HTMLDivElement>(null);
 
   const [step, setStep]         = useState<Step>('idle');
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
@@ -49,13 +50,20 @@ function AddPageInner() {
   const [hasWarranty, setHasWarranty] = useState(true);
   const [form, setForm]         = useState(DEFAULT_FORM);
   const [newDayInput, setNewDayInput] = useState('');
+  const [libraryInputKey, setLibraryInputKey] = useState(0);
   const supabase = createClient();
+
+  const scrollToTop = () => {
+    // Use multiple methods for broad browser compatibility
+    if (typeof window === 'undefined') return;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    formRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
+  };
 
   useEffect(() => {
     if (source === 'manual') {
-      setStep('processing');
-      setWizardStep(1);
-      setTimeout(() => setStep('idle'), 300);
+      setStep('idle');
       return;
     }
     if (source === 'camera' || source === 'library') {
@@ -91,6 +99,19 @@ function AddPageInner() {
     }
   };
 
+  const handleFileFromLibrary = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      processImage(dataUrl);
+    };
+    reader.readAsDataURL(file);
+    // Reset so the same file can be re-selected
+    setLibraryInputKey((k) => k + 1);
+  };
+
   const handleNext = () => {
     if (wizardStep === 1) {
       if (!form.item_name.trim()) { setError('Item name is required'); return; }
@@ -98,8 +119,8 @@ function AddPageInner() {
       if (!form.purchase_date) { setError('Purchase date is required'); return; }
       setError(null);
       setWizardStep(2);
-      // Scroll to top of page
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Scroll to top after state update
+      queueMicrotask(() => scrollToTop());
       return;
     }
     handleSave();
@@ -155,12 +176,6 @@ function AddPageInner() {
         });
         if (insertError) { console.error('[add]', insertError); setError(`Failed: ${insertError.message}`); setStep('idle'); return; }
       } else {
-        const totalDays = warrantyUnit === 'days'
-          ? form.warranty_months
-          : warrantyUnit === 'years'
-          ? form.warranty_months * 365
-          : form.warranty_months * 30;
-
         const purchaseDate = new Date(form.purchase_date);
         const expiryDate  = new Date(purchaseDate);
         if (warrantyUnit === 'days') {
@@ -232,15 +247,7 @@ function AddPageInner() {
       })()
     : null;
 
-  if (step === 'idle' && wizardStep === 1 && !imageDataUrl && source !== 'camera' && source !== 'library') {
-    return (
-      <div className={styles.processing}>
-        <div className={styles.spinner} aria-hidden="true" />
-        <p className={styles.processingText}>Opening camera…</p>
-      </div>
-    );
-  }
-
+  // Show processing spinner when reading a receipt image
   if (step === 'processing') {
     return (
       <div className={styles.processing}>
@@ -251,10 +258,14 @@ function AddPageInner() {
     );
   }
 
-  if (step === 'saving' || step === 'idle') {
-    const isSaving = step === 'saving';
+  // Main form render (step === 'idle' or 'saving')
+  const isSaving = step === 'saving';
+  const showForm = step === 'idle' || step === 'saving';
 
-    return (
+  if (!showForm) return null;
+
+  return (
+    <div ref={formRef}>
       <div className={styles.confirm}>
         {/* Wizard header */}
         <div className={styles.wizardHeader}>
@@ -321,6 +332,54 @@ function AddPageInner() {
         <div className={styles.form}>
           {wizardStep === 1 ? (
             <>
+              {/* Add photo button — for manual entry, allow adding a photo mid-form */}
+              {source === 'manual' && !imageDataUrl && (
+                <div className={styles.field}>
+                  <p className={styles.label}>Receipt photo <span className={styles.optional}>(optional)</span></p>
+                  {/* Hidden camera input */}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    id="add-camera-input"
+                    className={styles.hiddenInput}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => processImage(ev.target?.result as string);
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                  {/* Library input (keyed to allow re-selection) */}
+                  <input
+                    key={libraryInputKey}
+                    type="file"
+                    accept="image/*"
+                    id="add-library-input"
+                    className={styles.hiddenInput}
+                    onChange={handleFileFromLibrary}
+                  />
+                  <div className={styles.photoActions}>
+                    <label htmlFor="add-camera-input" className={styles.photoBtn}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                        <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.75" />
+                      </svg>
+                      Use camera
+                    </label>
+                    <label htmlFor="add-library-input" className={styles.photoBtn}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.75" />
+                        <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.75" />
+                        <polyline points="21 15 16 10 5 21" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      Choose from library
+                    </label>
+                  </div>
+                </div>
+              )}
+
               {/* Item name */}
               <div className={styles.field}>
                 <label htmlFor="item_name" className={styles.label}>
@@ -523,7 +582,7 @@ function AddPageInner() {
         <div className={styles.formActions}>
           {wizardStep === 2 && (
             <button type="button" className={styles.btnSecondary}
-              onClick={() => { setWizardStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              onClick={() => { setWizardStep(1); queueMicrotask(() => scrollToTop()); }}
               disabled={isSaving}>
               Back
             </button>
@@ -535,10 +594,8 @@ function AddPageInner() {
           </button>
         </div>
       </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }
 
 export default function AddPage() {

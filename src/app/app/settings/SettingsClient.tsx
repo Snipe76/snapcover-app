@@ -1,39 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getExistingSubscription, subscribeToPush, unsubscribeFromPush } from '@/lib/notifications';
+import { createClient } from '@/lib/supabase/client';
+import {
+  getExistingSubscription,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '@/lib/notifications';
 import styles from './settings.module.css';
 
-interface SettingsClientProps {
+interface Props {
   userId: string;
   email: string;
 }
 
-export function SettingsClient({ userId, email }: SettingsClientProps) {
+export function SettingsClient({ userId, email }: Props) {
   const router = useRouter();
   const supabase = createClient();
 
-  // Push notification state
-  const [pushEnabled, setPushEnabled] = useState(false);
-  const [pushLoading, setPushLoading] = useState(false);
-  const [pushSupported, setPushSupported] = useState(false);
-
-  useEffect(() => {
-    setPushSupported(typeof window !== 'undefined' && 'Notification' in window);
-  }, []);
+  // ─── Push notifications ───────────────────────────────────────────────────
+  // Push is only supported in browsers with service workers + push manager
+  const [pushSupported] = useState(
+    typeof window !== 'undefined' &&
+    'Notification' in window &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window
+  );
+  const [pushEnabled, setPushEnabled]       = useState(false);
+  const [pushLoading, setPushLoading]       = useState(false);
+  const [pushError, setPushError]           = useState<string | null>(null);
+  const [pushTesting, setPushTesting]       = useState(false);
+  const [pushTestSent, setPushTestSent]     = useState(false);
 
   // Check existing subscription on mount
-  useEffect(() => {
-    if (!pushSupported) return;
-    getExistingSubscription().then((sub) => {
-      setPushEnabled(!!sub);
-    });
-  }, [pushSupported]);
-
-  // ─── Push notifications ───────────────────────────────────────────────────
-  const [pushError, setPushError] = useState<string | null>(null);
+  useState(() => {
+    if (typeof window !== 'undefined') {
+      getExistingSubscription().then((sub) => setPushEnabled(!!sub));
+    }
+  });
 
   const handlePushToggle = async () => {
     setPushError(null);
@@ -41,31 +46,24 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
     try {
       if (pushEnabled) {
         const sub = await getExistingSubscription();
-        if (sub) {
-          await unsubscribeFromPush(sub);
-        }
+        if (sub) await unsubscribeFromPush(sub);
         setPushEnabled(false);
       } else {
-        // Step 1: request permission
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
-          setPushError('Notification permission denied. Please enable notifications in your browser settings.');
+          setPushError('Permission denied. Enable notifications in your browser settings.');
           setPushLoading(false);
           return;
         }
-
-        // Step 2: register service worker (required before pushManager.subscribe)
         let registration: ServiceWorkerRegistration | undefined;
         try {
           registration = await navigator.serviceWorker.register('/sw.js');
         } catch (swErr) {
-          console.error('[push] service worker registration failed:', swErr);
+          console.error('[push] sw registration failed:', swErr);
           setPushError('Service worker registration failed. Try refreshing the page.');
           setPushLoading(false);
           return;
         }
-
-        // Step 3: subscribe to push
         let sub;
         try {
           sub = await subscribeToPush();
@@ -75,27 +73,22 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
           setPushLoading(false);
           return;
         }
-
         if (!sub) {
           setPushError('No subscription returned. Try refreshing and trying again.');
           setPushLoading(false);
           return;
         }
-
-        // Step 4: send subscription to server
         const res = await fetch('/api/notifications/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subscription: sub.toJSON() }),
         });
-
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           setPushError(`Server error: ${data.error ?? res.status}`);
           setPushLoading(false);
           return;
         }
-
         setPushEnabled(true);
       }
     } catch (err) {
@@ -103,6 +96,36 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
       setPushError('Something went wrong. Please try again.');
     } finally {
       setPushLoading(false);
+    }
+  };
+
+  const handleSendTestPush = async () => {
+    setPushTesting(true);
+    setPushTestSent(false);
+    setPushError(null);
+    try {
+      const sub = await getExistingSubscription();
+      if (!sub) {
+        setPushError('No push subscription found. Enable push first.');
+        setPushTesting(false);
+        return;
+      }
+      const res = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON() }),
+      });
+      if (res.ok) {
+        setPushTestSent(true);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setPushError(`Failed: ${data.error ?? res.status}`);
+      }
+    } catch (err) {
+      console.error('[push] test error:', err);
+      setPushError('Failed to send test notification.');
+    } finally {
+      setPushTesting(false);
     }
   };
 
@@ -141,16 +164,16 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
   };
 
   // ─── Delete Account ───────────────────────────────────────────────────────
-  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deletingAccount, setDeletingAccount]     = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteInput, setDeleteInput]             = useState('');
 
   const handleDeleteAccount = async () => {
+    if (deleteInput.trim() !== 'DELETE') return;
     setDeletingAccount(true);
-    // Delete all user data
     await supabase.from('warranties').delete().eq('user_id', userId);
     await supabase.from('notifications').delete().eq('user_id', userId);
     await supabase.from('push_subscriptions').delete().eq('user_id', userId);
-    // Note: Deleting the auth user requires admin privileges
     await supabase.auth.signOut();
     router.push('/login?deleted=1');
   };
@@ -195,12 +218,29 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
 
           <div className={styles.hint}>
             {pushEnabled
-              ? 'You&apos;ll receive reminders 30, 7, and 1 day before a warranty expires.'
+              ? 'You\'ll receive reminders before warranties expire.'
               : 'Enable to receive browser push notifications. Email reminders are always sent.'}
           </div>
+
+          {pushEnabled && (
+            <button
+              type="button"
+              className={styles.sendTestBtn}
+              onClick={handleSendTestPush}
+              disabled={pushTesting}
+            >
+              {pushTesting ? 'Sending…' : pushTestSent ? '✓ Test sent!' : 'Send test notification'}
+            </button>
+          )}
+
           {pushError && (
-            <div role="alert" className={styles.hint} style={{ color: 'var(--danger)', marginTop: 'var(--space-2)' }}>
+            <div role="alert" style={{ color: 'var(--danger)', fontSize: '13px', marginTop: 'var(--space-2)' }}>
               {pushError}
+            </div>
+          )}
+          {pushTestSent && !pushError && (
+            <div style={{ color: 'var(--success, #34c759)', fontSize: '13px', marginTop: 'var(--space-2)' }}>
+              Test notification sent! Check your browser.
             </div>
           )}
         </div>
@@ -216,7 +256,7 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
             disabled={exporting}
           >
             <span className={styles.rowLabel}>
-              {exporting ? 'Exporting…' : 'Export all warranties'}
+              {exporting ? 'Exporting…' : 'Export all items'}
             </span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M8 2v8M4 7l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -241,7 +281,7 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
         <div className={`${styles.card} ${styles.cardDanger}`}>
           <button
             className={styles.actionRow}
-            onClick={() => setShowDeleteConfirm(true)}
+            onClick={() => { setDeleteInput(''); setShowDeleteConfirm(true); }}
           >
             <span className={styles.rowLabelDanger}>Delete account</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -263,17 +303,29 @@ export function SettingsClient({ userId, email }: SettingsClientProps) {
               All warranties, notifications, and settings will be permanently deleted.
               This cannot be undone.
             </p>
+            <p className={styles.confirmBody} style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: 'var(--space-2)' }}>
+              Type <strong>DELETE</strong> to confirm:
+            </p>
+            <input
+              type="text"
+              value={deleteInput}
+              onChange={(e) => setDeleteInput(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+              autoFocus
+              className={styles.deleteConfirmInput}
+            />
             <div className={styles.confirmActions}>
               <button
                 className={styles.confirmCancel}
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); }}
               >
                 Cancel
               </button>
               <button
                 className={styles.confirmDelete}
                 onClick={handleDeleteAccount}
-                disabled={deletingAccount}
+                disabled={deleteInput.trim() !== 'DELETE' || deletingAccount}
               >
                 {deletingAccount ? 'Deleting…' : 'Delete account'}
               </button>
