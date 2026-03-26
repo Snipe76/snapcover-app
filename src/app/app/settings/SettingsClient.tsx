@@ -8,6 +8,7 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
 } from '@/lib/notifications';
+import { logger, addBreadcrumb, logSupabaseError } from '@/lib/logger';
 import styles from './settings.module.css';
 
 interface Props {
@@ -43,56 +44,81 @@ export function SettingsClient({ userId, email }: Props) {
   const handlePushToggle = async () => {
     setPushError(null);
     setPushLoading(true);
+
+    addBreadcrumb('Settings', pushEnabled ? 'Disabling push' : 'Enabling push');
+
     try {
       if (pushEnabled) {
         const sub = await getExistingSubscription();
-        if (sub) await unsubscribeFromPush(sub);
+        if (sub) {
+          await unsubscribeFromPush(sub);
+          addBreadcrumb('Settings', 'Push unsubscribed');
+        }
         setPushEnabled(false);
       } else {
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
+          addBreadcrumb('Settings', 'Push permission denied');
           setPushError('Permission denied. Enable notifications in your browser settings.');
           setPushLoading(false);
           return;
         }
+
         let registration: ServiceWorkerRegistration | undefined;
         try {
           registration = await navigator.serviceWorker.register('/sw.js');
+          addBreadcrumb('Settings', 'Service worker registered');
         } catch (swErr) {
-          console.error('[push] sw registration failed:', swErr);
+          logger.error('Settings', 'Service worker registration failed', {
+            error: swErr instanceof Error ? swErr.message : String(swErr),
+          });
           setPushError('Service worker registration failed. Try refreshing the page.');
           setPushLoading(false);
           return;
         }
+
         let sub;
         try {
           sub = await subscribeToPush();
         } catch (subErr) {
-          console.error('[push] subscribe failed:', subErr);
+          logger.error('Settings', 'Push subscription failed', {
+            error: subErr instanceof Error ? subErr.message : String(subErr),
+          });
           setPushError('Push subscription failed. Your browser may not support Web Push.');
           setPushLoading(false);
           return;
         }
+
         if (!sub) {
           setPushError('No subscription returned. Try refreshing and trying again.');
           setPushLoading(false);
           return;
         }
+
         const res = await fetch('/api/notifications/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subscription: sub.toJSON() }),
         });
+
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
+          logger.error('Settings', 'Push subscribe API failed', {
+            status: res.status,
+            error: data.error,
+          });
           setPushError(`Server error: ${data.error ?? res.status}`);
           setPushLoading(false);
           return;
         }
+
+        addBreadcrumb('Settings', 'Push enabled successfully');
         setPushEnabled(true);
       }
     } catch (err) {
-      console.error('[push] toggle error:', err);
+      logger.error('Settings', 'Push toggle error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       setPushError('Something went wrong. Please try again.');
     } finally {
       setPushLoading(false);
@@ -103,9 +129,13 @@ export function SettingsClient({ userId, email }: Props) {
     setPushTesting(true);
     setPushTestSent(false);
     setPushError(null);
+
+    addBreadcrumb('Settings', 'Sending test push notification');
+
     try {
       const sub = await getExistingSubscription();
       if (!sub) {
+        addBreadcrumb('Settings', 'No subscription found for test push');
         setPushError('No push subscription found. Enable push first.');
         setPushTesting(false);
         return;
@@ -116,13 +146,20 @@ export function SettingsClient({ userId, email }: Props) {
         body: JSON.stringify({ subscription: sub.toJSON() }),
       });
       if (res.ok) {
+        addBreadcrumb('Settings', 'Test push sent successfully');
         setPushTestSent(true);
       } else {
         const data = await res.json().catch(() => ({}));
+        logger.error('Settings', 'Test push failed', {
+          status: res.status,
+          error: data.error,
+        });
         setPushError(`Failed: ${data.error ?? res.status}`);
       }
     } catch (err) {
-      console.error('[push] test error:', err);
+      logger.error('Settings', 'Test push error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       setPushError('Failed to send test notification.');
     } finally {
       setPushTesting(false);
@@ -134,13 +171,25 @@ export function SettingsClient({ userId, email }: Props) {
 
   const handleExport = async () => {
     setExporting(true);
+    addBreadcrumb('Settings', 'Exporting data');
+
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('warranties')
         .select('*')
         .eq('user_id', userId);
 
-      if (!data) return;
+      if (error) {
+        logSupabaseError('select', 'warranties', error, { userId, action: 'export' });
+        setExporting(false);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        addBreadcrumb('Settings', 'Export - no data to export');
+        setExporting(false);
+        return;
+      }
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url  = URL.createObjectURL(blob);
@@ -149,6 +198,12 @@ export function SettingsClient({ userId, email }: Props) {
       a.download = `snapcover-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
+
+      addBreadcrumb('Settings', 'Export completed', { count: data.length });
+    } catch (err) {
+      logger.error('Settings', 'Export failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setExporting(false);
     }
@@ -170,12 +225,39 @@ export function SettingsClient({ userId, email }: Props) {
 
   const handleDeleteAccount = async () => {
     if (deleteInput.trim() !== 'DELETE') return;
+
+    addBreadcrumb('Settings', 'Deleting account', { userId });
     setDeletingAccount(true);
-    await supabase.from('warranties').delete().eq('user_id', userId);
-    await supabase.from('notifications').delete().eq('user_id', userId);
-    await supabase.from('push_subscriptions').delete().eq('user_id', userId);
-    await supabase.auth.signOut();
-    router.push('/login?deleted=1');
+
+    try {
+      // Delete in parallel
+      const [warrantiesResult, notificationsResult, subscriptionsResult] = await Promise.all([
+        supabase.from('warranties').delete().eq('user_id', userId),
+        supabase.from('notifications').delete().eq('user_id', userId),
+        supabase.from('push_subscriptions').delete().eq('user_id', userId),
+      ]);
+
+      if (warrantiesResult.error) {
+        logSupabaseError('delete', 'warranties', warrantiesResult.error, { userId, action: 'deleteAccount' });
+      }
+      if (notificationsResult.error) {
+        logSupabaseError('delete', 'notifications', notificationsResult.error, { userId, action: 'deleteAccount' });
+      }
+      if (subscriptionsResult.error) {
+        logSupabaseError('delete', 'push_subscriptions', subscriptionsResult.error, { userId, action: 'deleteAccount' });
+      }
+
+      addBreadcrumb('Settings', 'Account data deleted, signing out');
+
+      await supabase.auth.signOut();
+      router.push('/login?deleted=1');
+    } catch (err) {
+      logger.error('Settings', 'Delete account failed', {
+        error: err instanceof Error ? err.message : String(err),
+        userId,
+      });
+      setDeletingAccount(false);
+    }
   };
 
   return (

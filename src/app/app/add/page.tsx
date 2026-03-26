@@ -4,6 +4,8 @@ import { useState, useEffect, Suspense, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { extractReceiptData } from '@/lib/ocr';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { logger, addBreadcrumb, withPerformance, logSupabaseError } from '@/lib/logger';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import styles from './add.module.css';
 
 type Step = 'idle' | 'processing' | 'saving';
@@ -79,11 +81,26 @@ function AddPageInner() {
   }, [source]);
 
   const processImage = async (dataUrl: string) => {
+    addBreadcrumb('AddPage', 'Processing receipt image', { source });
     setImageDataUrl(dataUrl);
     setStep('processing');
     setError(null);
+
+    const endPerformance = withPerformance('OCR', 'extractReceiptData');
+
     try {
       const result = await extractReceiptData(dataUrl);
+      endPerformance({
+        itemName: result.item_name,
+        storeName: result.store_name,
+        hasDate: !!result.purchase_date,
+      });
+
+      addBreadcrumb('AddPage', 'OCR completed successfully', {
+        itemName: result.item_name,
+        storeName: result.store_name,
+      });
+
       setForm({
         ...DEFAULT_FORM,
         item_name:     result.item_name,
@@ -92,7 +109,13 @@ function AddPageInner() {
       });
       setWizardStep(1);
       setStep('idle');
-    } catch {
+    } catch (err) {
+      endPerformance({ error: true });
+      logger.error('AddPage', 'OCR processing failed', {
+        source,
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
       setForm({ ...DEFAULT_FORM, item_name: '', store_name: '', purchase_date: '' });
       setWizardStep(1);
       setStep('idle');
@@ -102,6 +125,10 @@ function AddPageInner() {
   const handleFileFromLibrary = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    addBreadcrumb('AddPage', 'Selected image from library', { fileName: file.name, fileSize: file.size });
+    logger.info('AddPage', 'File selected from library', { fileName: file.name, fileSize: file.size, fileType: file.type });
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
@@ -118,6 +145,14 @@ function AddPageInner() {
       if (!form.store_name.trim()) { setError('Store is required'); return; }
       if (!form.purchase_date) { setError('Purchase date is required'); return; }
       setError(null);
+
+      addBreadcrumb('AddPage', 'Proceeding to step 2 - Warranty details', {
+        itemName: form.item_name,
+        storeName: form.store_name,
+        hasWarranty,
+        category: form.category,
+      });
+
       setWizardStep(2);
       // Scroll to top after state update
       queueMicrotask(() => scrollToTop());
@@ -131,31 +166,56 @@ function AddPageInner() {
       if (form.warranty_months < 1) { setError('Warranty length must be at least 1'); return; }
     }
 
+    addBreadcrumb('AddPage', 'Saving warranty/receipt', {
+      itemName: form.item_name,
+      storeName: form.store_name,
+      hasWarranty,
+      hasReceipt: !!imageDataUrl,
+      warrantyMonths: form.warranty_months,
+      warrantyUnit,
+      notificationDays: form.notificationDays,
+    });
+
+    const endPerformance = withPerformance('AddPage', 'handleSave');
     setStep('saving');
 
     try {
       let receiptUrl: string | null = null;
+
       if (imageDataUrl) {
+        const uploadEnd = withPerformance('Supabase', 'storage.upload');
         const filename = `receipts/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
         const res = await fetch(imageDataUrl);
         const blob = await res.blob();
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('receipts')
           .upload(filename, blob, { contentType: 'image/jpeg' });
-        if (!uploadError && uploadData) {
+
+        if (uploadError) {
+          uploadEnd({ error: true });
+          logSupabaseError('upload', 'receipts', uploadError, { filename });
+          // Non-fatal - continue without receipt URL
+        } else {
+          uploadEnd({ success: true, path: uploadData?.path });
           const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(uploadData.path);
           receiptUrl = urlData.publicUrl;
         }
       }
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setError('You must be signed in.'); setStep('idle'); return; }
+      if (!user) {
+        addBreadcrumb('AddPage', 'Save failed - not authenticated', {});
+        setError('You must be signed in.');
+        setStep('idle');
+        return;
+      }
 
       const priceNum = form.price_paid
         ? parseFloat(form.price_paid.replace(/[^0-9.]/g, ''))
         : null;
 
       if (!hasWarranty) {
+        const insertEnd = withPerformance('Supabase', 'insert.receipt');
         const { error: insertError } = await supabase.from('warranties').insert({
           user_id:       user.id,
           item_name:     form.item_name,
@@ -174,7 +234,15 @@ function AddPageInner() {
           warranty_months: 0,
           expiry_date:   null,
         });
-        if (insertError) { console.error('[add]', insertError); setError(`Failed: ${insertError.message}`); setStep('idle'); return; }
+
+        if (insertError) {
+          insertEnd({ error: true });
+          logSupabaseError('insert', 'warranties', insertError, { type: 'receipt', userId: user.id });
+          setError(`Failed: ${insertError.message}`);
+          setStep('idle');
+          return;
+        }
+        insertEnd({ success: true });
       } else {
         const purchaseDate = new Date(form.purchase_date);
         const expiryDate  = new Date(purchaseDate);
@@ -194,6 +262,7 @@ function AddPageInner() {
         const daysUntil = Math.round((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         const status: 'active' | 'expiring' = daysUntil <= 30 ? 'expiring' : 'active';
 
+        const insertEnd = withPerformance('Supabase', 'insert.warranty');
         const { error: insertError } = await supabase.from('warranties').insert({
           user_id:          user.id,
           item_name:        form.item_name,
@@ -212,12 +281,26 @@ function AddPageInner() {
           reminder_time:     form.reminder_time,
           type:             'warranty',
         });
-        if (insertError) { console.error('[add]', insertError); setError(`Failed: ${insertError.message}`); setStep('idle'); return; }
+
+        if (insertError) {
+          insertEnd({ error: true });
+          logSupabaseError('insert', 'warranties', insertError, { type: 'warranty', userId: user.id });
+          setError(`Failed: ${insertError.message}`);
+          setStep('idle');
+          return;
+        }
+        insertEnd({ success: true });
       }
 
+      addBreadcrumb('AddPage', 'Save succeeded - navigating to app', { hasReceiptUrl: !!receiptUrl });
+      endPerformance({ success: true });
       router.push('/app?saved=true');
     } catch (err) {
-      console.error('Save error:', err);
+      endPerformance({ error: true });
+      logger.error('AddPage', 'handleSave threw unexpectedly', {
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
       setError('Failed to save. Please try again.');
       setStep('idle');
     }
@@ -600,8 +683,10 @@ function AddPageInner() {
 
 export default function AddPage() {
   return (
-    <Suspense fallback={null}>
-      <AddPageInner />
-    </Suspense>
+    <ErrorBoundary namespace="AddPage">
+      <Suspense fallback={null}>
+        <AddPageInner />
+      </Suspense>
+    </ErrorBoundary>
   );
 }

@@ -6,7 +6,10 @@ import { Dialog } from '@/components/ui/Dialog';
 import { useState, Component, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Warranty, WarrantyStatus } from '@/lib/db/types';
+import { logger, addBreadcrumb, logSupabaseError } from '@/lib/logger';
 import styles from './WarrantyCard.module.css';
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
 interface Props {
   warranty: Warranty;
@@ -22,6 +25,8 @@ function isValidStatus(s: string | undefined): s is WarrantyStatus {
   return s === 'active' || s === 'expiring' || s === 'expired' || s === 'archived';
 }
 
+// ─── Card content component ─────────────────────────────────────────────────────
+
 function WarrantyCardInner({ warranty, onDelete }: Props) {
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -35,10 +40,27 @@ function WarrantyCardInner({ warranty, onDelete }: Props) {
 
   const handleDelete = async () => {
     setDeleting(true);
-    await supabase.from('warranties').delete().eq('id', w.id);
-    onDelete?.(w.id);
-    setShowDelete(false);
-    setDeleting(false);
+    addBreadcrumb('WarrantyCard', 'Delete confirmed by user', { warrantyId: w.id, itemName: w.item_name });
+
+    try {
+      const { error } = await supabase.from('warranties').delete().eq('id', w.id);
+      if (error) {
+        logSupabaseError('delete', 'warranties', error, { warrantyId: w.id });
+        setShowDelete(false);
+        setDeleting(false);
+        return;
+      }
+      addBreadcrumb('WarrantyCard', 'Delete succeeded', { warrantyId: w.id });
+      onDelete?.(w.id);
+    } catch (err) {
+      logger.error('WarrantyCard', 'Delete failed', {
+        warrantyId: w.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setShowDelete(false);
+      setDeleting(false);
+    }
   };
 
   const priceDisplay = w.price_paid != null
@@ -57,7 +79,7 @@ function WarrantyCardInner({ warranty, onDelete }: Props) {
     ? styles.accentExpiring
     : '';
 
-  const hasExpiry = !!(w.expiry_date && w.expiry_date.trim());
+  const hasExpiry = !!(w.expiry_date && String(w.expiry_date ?? '').trim());
 
   return (
     <>
@@ -87,7 +109,7 @@ function WarrantyCardInner({ warranty, onDelete }: Props) {
 
         <div className={styles.right}>
           {!isReceipt && hasExpiry ? (
-            <ExpiryBadge expiryDate={w.expiry_date ?? ''} status={effectiveStatus} />
+            <ExpiryBadge expiryDate={String(w.expiry_date ?? '')} status={effectiveStatus} />
           ) : isReceipt ? (
             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>
               Receipt
@@ -127,17 +149,68 @@ function WarrantyCardInner({ warranty, onDelete }: Props) {
   );
 }
 
-// Error boundary to prevent the whole list from crashing
-export class WarrantyCardErrorBoundary extends Component<{ children: ReactNode }> {
-  state = { hasError: false };
+// ─── Error Boundary ─────────────────────────────────────────────────────────
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+interface ErrorBoundaryState {
+  hasError: boolean;
+  errorMessage: string;
+  errorStack: string;
+}
+
+interface WarrantyCardErrorBoundaryProps {
+  children: ReactNode;
+  warrantyId: string;
+}
+
+export class WarrantyCardErrorBoundary extends Component<WarrantyCardErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, errorMessage: '', errorStack: '' };
+
+  static getDerivedStateFromError(err: Error): ErrorBoundaryState {
+    return { hasError: true, errorMessage: err.message, errorStack: err.stack ?? '' };
+  }
+
+  componentDidCatch(error: Error) {
+    logger.error('WarrantyCard', `Card crashed: ${error.message}`, {
+      warrantyId: this.props.warrantyId,
+      stack: error.stack,
+      errorName: error.name,
+    });
   }
 
   render() {
     if (this.state.hasError) {
-      return null; // Silently drop broken cards
+      return (
+        <div
+          role="alert"
+          style={{
+            padding: '14px 16px',
+            background: 'rgba(239,68,68,0.08)',
+            border: '1.5px solid rgba(239,68,68,0.35)',
+            borderRadius: '10px',
+            marginBottom: '12px',
+          }}
+        >
+          <p style={{ fontSize: '13px', fontWeight: 700, color: '#dc2626', margin: '0 0 6px' }}>
+            ⚠ Card crashed
+          </p>
+          <p style={{ fontSize: '12px', color: '#7f1d1d', margin: '0 0 4px' }}>
+            ID: <code>{this.props.warrantyId ?? 'unknown'}</code>
+          </p>
+          <p style={{ fontSize: '12px', color: '#7f1d1d', margin: '0 0 6px', fontWeight: 600 }}>
+            {this.state.errorMessage}
+          </p>
+          {this.state.errorStack && (
+            <details>
+              <summary style={{ fontSize: '11px', color: '#991b1b', cursor: 'pointer', fontWeight: 600, marginBottom: '4px' }}>
+                Stack trace
+              </summary>
+              <pre style={{ fontSize: '10px', color: '#991b1b', overflow: 'auto', margin: 0, fontFamily: 'monospace' }}>
+                {this.state.errorStack}
+              </pre>
+            </details>
+          )}
+        </div>
+      );
     }
     return this.props.children;
   }

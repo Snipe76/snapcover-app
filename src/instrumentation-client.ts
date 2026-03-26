@@ -1,31 +1,29 @@
-// This file configures the initialization of Sentry on the client.
-// The added config here will be used whenever a users loads a page in their browser.
-// https://docs.sentry.io/platforms/javascript/guides/nextjs/
+/**
+ * Client-Side Instrumentation
+ * Runs in the browser for client components and pages.
+ *
+ * Sets up:
+ * - Sentry browser tracing
+ * - Global error handlers
+ * - Navigation breadcrumbs
+ */
 
 import * as Sentry from "@sentry/nextjs";
+import { initGlobalErrorHandlers } from "@/lib/logger";
 
-Sentry.init({
-  dsn: "https://ee4010a7add3c66b7a212d3321a4cdd9@o4511107182100480.ingest.us.sentry.io/4511107184394240",
+// Import Sentry client config to initialize it
+async function initClient() {
+  await import("../sentry.client.config");
 
-  // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  // Initialize global error handlers for unhandled errors/promises
+  if (typeof window !== "undefined") {
+    initGlobalErrorHandlers();
+  }
+}
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
+initClient().catch(console.error);
 
-  // Define how likely Replay events are sampled.
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
+export { Sentry };
 
-  // Define how likely Replay events are sampled when an error occurs.
-  replaysOnErrorSampleRate: 1.0,
-
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
-});
-
+// Export for router transition tracking
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

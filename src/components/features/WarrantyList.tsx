@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { WarrantyCard, WarrantyCardErrorBoundary } from './WarrantyCard';
 import { useFabMenu } from '@/contexts/FabMenuContext';
 import type { Warranty } from '@/lib/db/types';
+import { logger, addBreadcrumb, withPerformance } from '@/lib/logger';
 import styles from './WarrantyList.module.css';
 import filterStyles from './FilterSheet.module.css';
 
@@ -51,8 +52,28 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Debug: log when warranty list loads
+  useEffect(() => {
+    const endPerformance = withPerformance('WarrantyList', 'initialLoad');
+
+    addBreadcrumb('WarrantyList', 'Mounted', {
+      userId,
+      warrantyCount: initialWarranties.length,
+      warrantyTypes: [...new Set(initialWarranties.map(w => w.type ?? 'warranty'))],
+      warrantyStatuses: [...new Set(initialWarranties.map(w => w.status))],
+    });
+
+    endPerformance({ warrantyCount: initialWarranties.length });
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, initialWarranties.length]);
+
   // Compute derived fields once
   const withStatus = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log('[WarrantyList] Processing', initialWarranties.length, 'warranties');
+    }
     return initialWarranties.map((w) => {
       const isReceipt = (w.type ?? 'warranty') === 'receipt';
       const computedStatus: Warranty['status'] =
@@ -414,7 +435,7 @@ export function WarrantyList({ initialWarranties, userId }: Props) {
         <ul className={styles.list} aria-label="Warranties and receipts">
           {sorted.map((w) => (
             <li key={w.id}>
-              <WarrantyCardErrorBoundary>
+              <WarrantyCardErrorBoundary warrantyId={w.id}>
                 <WarrantyCard warranty={w} />
               </WarrantyCardErrorBoundary>
             </li>

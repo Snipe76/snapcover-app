@@ -4,6 +4,7 @@ import type { Warranty } from '@/lib/db/types';
 import { ExpiryBadge } from '@/components/features/ExpiryBadge';
 import { ReceiptLightbox } from './ReceiptLightbox';
 import { ReminderToggles } from './ReminderToggles';
+import { DeleteWarrantyForm } from './DeleteForm';
 import styles from './warranty.module.css';
 
 interface Props {
@@ -159,28 +160,11 @@ export default async function WarrantyDetailPage({ params }: Props) {
       )}
 
       {/* ── Delete ───────────────────────────────────────────────── */}
-      <div className={styles.deleteSection}>
-        <form
-          action={async () => {
-            'use server';
-            const supabase = await createClient();
-            await supabase.from('warranties').delete().eq('id', id);
-            redirect('/app');
-          }}
-        >
-          <button
-            type="submit"
-            className={styles.deleteBtn}
-            onClick={(e) => {
-              if (!confirm(`Delete this ${isReceipt ? 'receipt' : 'warranty'}? This cannot be undone.`)) {
-                e.preventDefault();
-              }
-            }}
-          >
-            Delete {isReceipt ? 'receipt' : 'warranty'}
-          </button>
-        </form>
-      </div>
+      <DeleteWarrantyForm
+        warrantyId={w.id}
+        itemName={w.item_name}
+        isReceipt={isReceipt}
+      />
     </div>
   );
 }

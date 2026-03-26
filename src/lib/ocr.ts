@@ -1,7 +1,11 @@
 /**
  * Client-side OCR using Tesseract.js.
  * Dynamically imported to avoid bloating the initial bundle.
+ *
+ * All errors are logged to Sentry via the logger module.
  */
+
+import { logger, addBreadcrumb, withPerformance } from '@/lib/logger';
 
 export interface ReceiptData {
   item_name:      string;
@@ -14,19 +18,66 @@ export async function extractReceiptData(imageDataUrl: string): Promise<ReceiptD
   // Dynamically import Tesseract.js to keep it out of the initial bundle
   const { createWorker } = await import('tesseract.js');
 
-  const worker = await createWorker('eng');
-  const { data } = await worker.recognize(imageDataUrl);
-  await worker.terminate();
+  const endPerformance = withPerformance('OCR', 'tesseract.recognize');
 
-  const text = data.text;
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  let worker: Awaited<ReturnType<typeof createWorker>> | null = null;
 
-  return {
-    item_name:      extractItemName(lines),
-    store_name:     extractStoreName(lines),
-    purchase_date:  extractDate(lines),
-    total:          extractTotal(lines),
-  };
+  try {
+    addBreadcrumb('OCR', 'Starting Tesseract worker', { imageLength: imageDataUrl.length });
+
+    worker = await createWorker('eng');
+
+    const { data } = await worker.recognize(imageDataUrl);
+
+    // Tesseract doesn't return an error property - errors are thrown
+    // If we get here, recognition succeeded (even with low confidence)
+
+    endPerformance({
+      confidence: data.confidence,
+      textLength: data.text.length,
+    });
+
+    addBreadcrumb('OCR', 'Tesseract recognition complete', {
+      confidence: data.confidence,
+      textLength: data.text.length,
+    });
+
+    await worker.terminate();
+    worker = null; // Prevent finally block from terminating again
+
+    const text = data.text;
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+
+    logger.debug('OCR', 'Extracted text lines', { lineCount: lines.length, text: text.slice(0, 200) });
+
+    return {
+      item_name:      extractItemName(lines),
+      store_name:     extractStoreName(lines),
+      purchase_date:  extractDate(lines),
+      total:          extractTotal(lines),
+    };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+
+    endPerformance({ error: true });
+
+    logger.error('OCR', `extractReceiptData failed: ${errorMessage}`, {
+      error: errorMessage,
+      stack: err instanceof Error ? err.stack : undefined,
+      imageLength: imageDataUrl.length,
+    });
+
+    throw err;
+  } finally {
+    // Always clean up the worker
+    if (worker) {
+      try {
+        await worker.terminate();
+      } catch {
+        // Ignore termination errors
+      }
+    }
+  }
 }
 
 function extractStoreName(lines: string[]): string {
@@ -103,7 +154,9 @@ function extractDate(lines: string[]): string {
   }
 
   // Default to today
-  return new Date().toISOString().split('T')[0];
+  const defaultDate = new Date().toISOString().split('T')[0];
+  logger.debug('OCR', 'No date found in receipt, using today', { defaultDate });
+  return defaultDate;
 }
 
 function extractTotal(lines: string[]): string {

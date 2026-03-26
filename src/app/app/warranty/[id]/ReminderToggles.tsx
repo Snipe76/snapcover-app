@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { logger, addBreadcrumb, logSupabaseError } from '@/lib/logger';
 import styles from './warranty.module.css';
 
 interface Props {
@@ -15,18 +16,32 @@ export function ReminderToggles({ warrantyId, initialDays, reminderTime }: Props
   const [days, setDays]     = useState<number[]>(initialDays ?? []);
   const [newDay, setNewDay] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const save = async (updatedDays: number[]) => {
     setSaving(true);
-    await supabase
+    setSaveError(null);
+
+    addBreadcrumb('ReminderToggles', 'Saving reminder changes', { warrantyId, newDays: updatedDays });
+
+    const { error } = await supabase
       .from('warranties')
       .update({ notification_days: updatedDays })
       .eq('id', warrantyId);
+
+    if (error) {
+      logSupabaseError('update', 'warranties', error, { warrantyId, field: 'notification_days' });
+      setSaveError(`Failed to save: ${error.message}`);
+    } else {
+      addBreadcrumb('ReminderToggles', 'Reminders saved', { warrantyId, days: updatedDays });
+    }
+
     setDays(updatedDays);
     setSaving(false);
   };
 
   const remove = (day: number) => {
+    addBreadcrumb('ReminderToggles', 'Removing reminder', { warrantyId, day });
     save(days.filter((d) => d !== day));
   };
 
@@ -36,6 +51,8 @@ export function ReminderToggles({ warrantyId, initialDays, reminderTime }: Props
     const n = parseInt(raw, 10);
     if (isNaN(n) || n < 0 || n > 365) return;
     if (days.includes(n)) { setNewDay(''); return; }
+
+    addBreadcrumb('ReminderToggles', 'Adding reminder', { warrantyId, day: n });
     save([...days, n].sort((a, b) => b - a));
     setNewDay('');
   };
@@ -65,6 +82,12 @@ export function ReminderToggles({ warrantyId, initialDays, reminderTime }: Props
           </div>
         ))}
       </div>
+
+      {saveError && (
+        <div role="alert" style={{ color: 'var(--danger)', fontSize: '12px', marginTop: '8px' }}>
+          {saveError}
+        </div>
+      )}
 
       <div className={styles.reminderAdd}>
         <input
